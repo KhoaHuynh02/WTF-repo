@@ -2,7 +2,7 @@
 `default_nettype none
 
 
-module  recorder(
+module recorder(
   input wire clk_in,
   input wire rst_in,
   input wire signed [7:0] audio_in,
@@ -148,7 +148,6 @@ module  recorder(
     .regceb(1'b1),
     .doutb(out_second_delay)  //second delay out
   );
-
 endmodule
 
 `default_nettype wire

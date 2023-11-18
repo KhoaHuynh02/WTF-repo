@@ -58,13 +58,13 @@ module top_level(
 
 
   //logic to produce 25 MHz step signal for PWM module
-  logic [1:0] pwm_counter;
-  logic pwm_step; //single-cycle pwm step
-  assign pwm_step = (pwm_counter==2'b11);
+  // logic [1:0] pwm_counter;
+  // logic pwm_step; //single-cycle pwm step
+  // assign pwm_step = (pwm_counter==2'b11);
 
-  always_ff @(posedge clk_m)begin
-    pwm_counter <= pwm_counter+1;
-  end
+  // always_ff @(posedge clk_m)begin
+  //   pwm_counter <= pwm_counter+1;
+  // end
 
   //generate clock signal for microphone
   //microphone signal at ~3.072 MHz
@@ -88,32 +88,32 @@ module top_level(
     end
   end
 
-  logic [7:0] tone_750; //output of sine wave of 750Hz
-  logic [7:0] tone_440; //output of sine wave of 440 Hz
+  // logic [7:0] tone_750; //output of sine wave of 750Hz
+  // logic [7:0] tone_440; //output of sine wave of 440 Hz
   logic [7:0] single_audio; //recorder non-echo output
   logic [7:0] echo_audio; //recorder echo output
 
-  //generate a 750 Hz tone
-  // assign tone_750 = 0; //replace and make instance of sine_generator for 750Hz
-  sine_generator my_750 (
-    .clk_in(clk_m),
-    .rst_in(sys_rst), //clock and reset
-    .step_in(audio_sample_valid), //trigger a phase step (rate at which you run sine generator)
-    .amp_out(tone_750) //output phase in 2's complement
-  );
+  // //generate a 750 Hz tone
+  // // assign tone_750 = 0; //replace and make instance of sine_generator for 750Hz
+  // sine_generator my_750 (
+  //   .clk_in(clk_m),
+  //   .rst_in(sys_rst), //clock and reset
+  //   .step_in(audio_sample_valid), //trigger a phase step (rate at which you run sine generator)
+  //   .amp_out(tone_750) //output phase in 2's complement
+  // );
 
 
 
-  //generate a 440 Hz tone
-  // assign tone_440 = 0; //replace and make instance of sine generator for 440 Hz
-  sine_generator_440 my_440 (
-    .clk_in(clk_m),
-    .rst_in(sys_rst), //clock and reset
-    .step_in(audio_sample_valid), //trigger a phase step (rate at which you run sine generator)
-    .amp_out(tone_440) //output phase in 2's complement
-  );
+  // //generate a 440 Hz tone
+  // // assign tone_440 = 0; //replace and make instance of sine generator for 440 Hz
+  // sine_generator_440 my_440 (
+  //   .clk_in(clk_m),
+  //   .rst_in(sys_rst), //clock and reset
+  //   .step_in(audio_sample_valid), //trigger a phase step (rate at which you run sine generator)
+  //   .amp_out(tone_440) //output phase in 2's complement
+  // );
 
-  recorder my_recorder(
+  recorder my_rec(
     .clk_in(clk_m), //system clock
     .rst_in(sys_rst),//global reset
     .record_in(record), //button indicating whether to record or not
@@ -129,9 +129,9 @@ module top_level(
 
   always_comb begin
     if          (sw[0])begin
-      audio_data_sel = tone_750; //signed
+      // audio_data_sel = tone_750; //signed
     end else if (sw[1])begin
-      audio_data_sel = tone_440; //signed
+      // audio_data_sel = tone_440; //signed
     end else if (sw[5])begin
       audio_data_sel = mic_audio; //signed
     end else if (sw[6])begin
@@ -151,7 +151,7 @@ module top_level(
   volume_control vc (.vol_in(sw[15:13]),.signal_in(audio_data_sel), .signal_out(vol_out));
 
   //PWM:
-  logic pwm_out_signal; //an inherently digital signal (0 or 1..no need to make signed)
+  // logic pwm_out_signal; //an inherently digital signal (0 or 1..no need to make signed)
   //the "value" is encoded using Pulse Width Modulation
   //PDM:
   logic pdm_out_signal; //an inherently digital signal (0 or 1..no need to make signed)
@@ -159,13 +159,13 @@ module top_level(
   logic audio_out; //value that drives output channels directly
 
   //already implemented for you:
-  pwm my_pwm(
-    .clk_in(clk_m),
-    .rst_in(sys_rst),
-    .level_in(vol_out),
-    .tick_in(pwm_step),
-    .pwm_out(pwm_out_signal)
-  );
+  // pwm my_pwm(
+  //   .clk_in(clk_m),
+  //   .rst_in(sys_rst),
+  //   .level_in(vol_out),
+  //   .tick_in(pwm_step),
+  //   .pwm_out(pwm_out_signal)
+  // );
 
   //you build (currently empty):
   pdm my_pdm(
@@ -178,7 +178,8 @@ module top_level(
 
   always_comb begin
     case (sw[4:3])
-      2'b00: audio_out = pwm_out_signal;
+      // 2'b00: audio_out = pwm_out_signal;
+      2'b00: audio_out = audio_out;
       2'b01: audio_out = pdm_out_signal;
       2'b10: audio_out = sampled_mic_data;
       2'b11: audio_out = 0;

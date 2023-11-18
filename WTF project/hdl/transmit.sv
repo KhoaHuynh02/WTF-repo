@@ -24,7 +24,7 @@ module transmit (
     localparam ONE_LEVEL = LOW + 600;
 
     logic [1:0] state = IDLE;
-    logic [7:0] audio_buffer <= 0;
+    logic [7:0] audio_buffer = 0;
     logic [$clog2(MAX_COUNTER)-1:0] counter;
     logic [$clog2(8)-1:0] bits_sent = 0;
 
