@@ -150,24 +150,12 @@ module top_level(
   // is not as important.
   volume_control vc (.vol_in(sw[15:13]),.signal_in(audio_data_sel), .signal_out(vol_out));
 
-  //PWM:
-  // logic pwm_out_signal; //an inherently digital signal (0 or 1..no need to make signed)
-  //the "value" is encoded using Pulse Width Modulation
+
   //PDM:
   logic pdm_out_signal; //an inherently digital signal (0 or 1..no need to make signed)
   //the value is encoded using Pulse Density Modulation
   logic audio_out; //value that drives output channels directly
 
-  //already implemented for you:
-  // pwm my_pwm(
-  //   .clk_in(clk_m),
-  //   .rst_in(sys_rst),
-  //   .level_in(vol_out),
-  //   .tick_in(pwm_step),
-  //   .pwm_out(pwm_out_signal)
-  // );
-
-  //you build (currently empty):
   pdm my_pdm(
     .clk_in(clk_m),
     .rst_in(sys_rst),
