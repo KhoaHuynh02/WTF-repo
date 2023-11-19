@@ -38,7 +38,7 @@ module top_level(
                       .clean_out(record));
 
   //logic for controlling PDM associated modules:
-  logic [8:0] m_clock_counter; //used for counting for mic clock generation
+  // logic [8:0] m_clock_counter; //used for counting for mic clock generation
   logic audio_sample_valid;//single-cycle enable for samples at ~12 kHz (approx)
   logic signed [7:0] mic_audio; //audio from microphone 8 bit unsigned at 12 kHz
   logic[7:0] audio_data; //raw scaled audio data
@@ -47,71 +47,44 @@ module top_level(
   logic [7:0] pdm_tally;
   logic [8:0] pdm_counter;
 
-  localparam PDM_COUNT_PERIOD = 32; //do not change
-  localparam NUM_PDM_SAMPLES = 256; //number of pdm in downsample/decimation/average
+  localparam PDM_COUNT_PERIOD = 4; // want to turn 98Mhz to 24 Mhz
+  localparam NUM_PDM_SAMPLES = 8; // value to use to tally the mic data to produce 8 bits samples
 
   logic old_mic_clk; //prior mic clock for edge detection
   logic sampled_mic_data; //one bit grabbed/held values of mic
-  logic pdm_signal_valid; //single-cycle signal at 3.072 MHz indicating pdm steps
+  
+  logic pdm_signal_valid; //single-cycle signal at 24 MHz indicating pdm steps
+  assign pdm_signal_valid = mic_clk && ~old_mic_clk; // a clock at 24 MHz
 
-  assign pdm_signal_valid = mic_clk && ~old_mic_clk;
 
 
-  //logic to produce 25 MHz step signal for PWM module
-  // logic [1:0] pwm_counter;
-  // logic pwm_step; //single-cycle pwm step
-  // assign pwm_step = (pwm_counter==2'b11);
-
-  // always_ff @(posedge clk_m)begin
-  //   pwm_counter <= pwm_counter+1;
-  // end
-
+  logic [2:0] m_clock_counter; //used for counting for mic clock generation
   //generate clock signal for microphone
-  //microphone signal at ~3.072 MHz
+  //microphone signal at ~24 MHz
   always_ff @(posedge clk_m)begin
     mic_clk <= m_clock_counter < PDM_COUNT_PERIOD/2;
     m_clock_counter <= (m_clock_counter==PDM_COUNT_PERIOD-1)?0:m_clock_counter+1;
     old_mic_clk <= mic_clk;
   end
-  //generate audio signal (samples at ~12 kHz
+
+  //generate 8 bits audio signal (samples at 3.072 MHZ)
   always_ff @(posedge clk_m)begin
-    if (pdm_signal_valid)begin
-      sampled_mic_data    <= mic_data;
-      pdm_counter         <= (pdm_counter==NUM_PDM_SAMPLES)?0:pdm_counter + 1;
-      pdm_tally           <= (pdm_counter==NUM_PDM_SAMPLES)?mic_data
-                                                            :pdm_tally+mic_data;
-      audio_sample_valid  <= (pdm_counter==NUM_PDM_SAMPLES);
-      mic_audio           <= (pdm_counter==NUM_PDM_SAMPLES)?{~pdm_tally[7],pdm_tally[6:0]}
-                                                            :mic_audio;
+    if (pdm_signal_valid) begin
+      sampled_mic_data    <= mic_data; // audio sampled at 24 MHZ
+
+      pdm_counter         <= (pdm_counter==NUM_PDM_SAMPLES)?0:pdm_counter + 1; // a counter that keeps track of when the tally should be reset
+      pdm_tally           <= (pdm_counter==NUM_PDM_SAMPLES)?mic_data :pdm_tally+mic_data; // tally to gather 8 bits of data
+      audio_sample_valid  <= (pdm_counter==NUM_PDM_SAMPLES); // trigger a valid tally of 8 bits samples (3.072 MHZ)
+      mic_audio           <= (pdm_counter==NUM_PDM_SAMPLES)?{~pdm_tally[7],pdm_tally[6:0]}:mic_audio; //8 bit signed data from microphone                                             
     end else begin
       audio_sample_valid <= 0;
     end
   end
 
-  // logic [7:0] tone_750; //output of sine wave of 750Hz
-  // logic [7:0] tone_440; //output of sine wave of 440 Hz
+
   logic [7:0] single_audio; //recorder non-echo output
   logic [7:0] echo_audio; //recorder echo output
 
-  // //generate a 750 Hz tone
-  // // assign tone_750 = 0; //replace and make instance of sine_generator for 750Hz
-  // sine_generator my_750 (
-  //   .clk_in(clk_m),
-  //   .rst_in(sys_rst), //clock and reset
-  //   .step_in(audio_sample_valid), //trigger a phase step (rate at which you run sine generator)
-  //   .amp_out(tone_750) //output phase in 2's complement
-  // );
-
-
-
-  // //generate a 440 Hz tone
-  // // assign tone_440 = 0; //replace and make instance of sine generator for 440 Hz
-  // sine_generator_440 my_440 (
-  //   .clk_in(clk_m),
-  //   .rst_in(sys_rst), //clock and reset
-  //   .step_in(audio_sample_valid), //trigger a phase step (rate at which you run sine generator)
-  //   .amp_out(tone_440) //output phase in 2's complement
-  // );
 
   recorder my_rec(
     .clk_in(clk_m), //system clock
@@ -128,7 +101,7 @@ module top_level(
   logic [7:0] audio_data_sel;
 
   always_comb begin
-    if          (sw[0])begin
+    if (sw[0])begin
       // audio_data_sel = tone_750; //signed
     end else if (sw[1])begin
       // audio_data_sel = tone_440; //signed
