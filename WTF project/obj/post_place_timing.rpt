@@ -1,90 +1,37 @@
 Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2023 Advanced Micro Devices, Inc. All Rights Reserved.
 ---------------------------------------------------------------------------------------------------------------------------------------------
 | Tool Version : Vivado v.2023.1 (lin64) Build 3865809 Sun May  7 15:04:56 MDT 2023
-| Date         : Sun Nov 19 20:21:53 2023
+| Date         : Tue Nov 21 13:38:48 2023
 | Host         : worker running 64-bit Ubuntu 20.04.6 LTS
 | Command      : report_timing -file obj/post_place_timing.rpt
 | Design       : top_level
 | Device       : 7s50-csga324
 | Speed File   : -1  PRODUCTION 1.23 2018-06-13
-| Design State : Fully Placed
+| Design State : Physopt postPlace
 ---------------------------------------------------------------------------------------------------------------------------------------------
 
 Timing Report
 
-Slack (MET) :             4.374ns  (required time - arrival time)
-  Source:                 my_rec/audio_buffer_delay/BRAM_reg_0_2/CLKBWRCLK
-                            (rising edge-triggered cell RAMB36E1 clocked by clk_out_audio_clk_wiz  {rise@0.000ns fall@5.087ns period=10.173ns})
-  Destination:            my_rec/echo_out_reg[5]/D
-                            (rising edge-triggered cell FDRE clocked by clk_out_audio_clk_wiz  {rise@0.000ns fall@5.087ns period=10.173ns})
-  Path Group:             clk_out_audio_clk_wiz
-  Path Type:              Setup (Max at Slow Process Corner)
-  Requirement:            10.173ns  (clk_out_audio_clk_wiz rise@10.173ns - clk_out_audio_clk_wiz rise@0.000ns)
-  Data Path Delay:        5.611ns  (logic 2.585ns (46.070%)  route 3.026ns (53.930%))
-  Logic Levels:           5  (CARRY4=2 LUT5=1 LUT6=1 RAMB36E1=1)
-  Clock Path Skew:        -0.142ns (DCD - SCD + CPR)
-    Destination Clock Delay (DCD):    -1.630ns = ( 8.543 - 10.173 ) 
-    Source Clock Delay      (SCD):    -1.006ns
-    Clock Pessimism Removal (CPR):    0.482ns
-  Clock Uncertainty:      0.107ns  ((TSJ^2 + DJ^2)^1/2) / 2 + PE
-    Total System Jitter     (TSJ):    0.071ns
-    Discrete Jitter          (DJ):    0.203ns
-    Phase Error              (PE):    0.000ns
+Slack:                    inf
+  Source:                 sw[0]
+                            (input port)
+  Destination:            led[0]
+                            (output port)
+  Path Group:             (none)
+  Path Type:              Max at Slow Process Corner
+  Data Path Delay:        9.262ns  (logic 4.985ns (53.821%)  route 4.277ns (46.179%))
+  Logic Levels:           2  (IBUF=1 OBUF=1)
 
     Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
   -------------------------------------------------------------------    -------------------
-                         (clock clk_out_audio_clk_wiz rise edge)
-                                                      0.000     0.000 r  
-    N15                                               0.000     0.000 r  clk_100mhz (IN)
-                         net (fo=0)                   0.000     0.000    macw/clk_100mhz
-    N15                  IBUF (Prop_ibuf_I_O)         1.440     1.440 r  macw/clkin1_ibufg/O
-                         net (fo=1, estimated)        1.233     2.673    macw/clk_in_audio_clk_wiz
-    MMCME2_ADV_X0Y0      MMCME2_ADV (Prop_mmcme2_adv_CLKIN1_CLKOUT0)
-                                                     -7.025    -4.352 r  macw/mmcm_adv_inst/CLKOUT0
-                         net (fo=1, estimated)        1.666    -2.686    macw/clk_out_audio_clk_wiz
-    BUFGCTRL_X0Y0        BUFG (Prop_bufg_I_O)         0.096    -2.590 r  macw/clkout1_buf/O
-                         net (fo=234, estimated)      1.583    -1.006    my_rec/audio_buffer_delay/clk_out
-    RAMB36_X0Y14         RAMB36E1                                     r  my_rec/audio_buffer_delay/BRAM_reg_0_2/CLKBWRCLK
+    G1                                                0.000     0.000 r  sw[0] (IN)
+                         net (fo=0)                   0.000     0.000    sw[0]
+    G1                   IBUF (Prop_ibuf_I_O)         1.465     1.465 r  sw_IBUF[0]_inst/O
+                         net (fo=1, estimated)        4.277     5.742    led_OBUF[0]
+    C13                  OBUF (Prop_obuf_I_O)         3.519     9.262 r  led_OBUF[0]_inst/O
+                         net (fo=0)                   0.000     9.262    led[0]
+    C13                                                               r  led[0] (OUT)
   -------------------------------------------------------------------    -------------------
-    RAMB36_X0Y14         RAMB36E1 (Prop_ramb36e1_CLKBWRCLK_CASCADEOUTB)
-                                                      1.028     0.022 r  my_rec/audio_buffer_delay/BRAM_reg_0_2/CASCADEOUTB
-                         net (fo=1, estimated)        0.065     0.087    my_rec/audio_buffer_delay/BRAM_reg_0_2_n_1
-    RAMB36_X0Y15         RAMB36E1 (Prop_ramb36e1_CASCADEINB_DOBDO[0])
-                                                      0.425     0.512 r  my_rec/audio_buffer_delay/BRAM_reg_1_2/DOBDO[0]
-                         net (fo=2, estimated)        2.469     2.981    my_rec/audio_buffer/ram_data_b[0]
-    SLICE_X50Y62         LUT5 (Prop_lut5_I2_O)        0.124     3.105 r  my_rec/audio_buffer/echo_out0__0_carry_i_3/O
-                         net (fo=2, estimated)        0.492     3.597    my_rec/audio_buffer/DI[0]
-    SLICE_X51Y62         LUT6 (Prop_lut6_I0_O)        0.124     3.721 r  my_rec/audio_buffer/echo_out0__0_carry_i_6/O
-                         net (fo=1, routed)           0.000     3.721    my_rec/audio_buffer_n_20
-    SLICE_X51Y62         CARRY4 (Prop_carry4_S[1]_CO[3])
-                                                      0.550     4.271 r  my_rec/echo_out0__0_carry/CO[3]
-                         net (fo=1, estimated)        0.000     4.271    my_rec/echo_out0__0_carry_n_0
-    SLICE_X51Y63         CARRY4 (Prop_carry4_CI_O[1])
-                                                      0.334     4.605 r  my_rec/echo_out0__0_carry__0/O[1]
-                         net (fo=1, routed)           0.000     4.605    my_rec/echo_out0[5]
-    SLICE_X51Y63         FDRE                                         r  my_rec/echo_out_reg[5]/D
-  -------------------------------------------------------------------    -------------------
-
-                         (clock clk_out_audio_clk_wiz rise edge)
-                                                     10.173    10.173 r  
-    N15                                               0.000    10.173 r  clk_100mhz (IN)
-                         net (fo=0)                   0.000    10.173    macw/clk_100mhz
-    N15                  IBUF (Prop_ibuf_I_O)         1.370    11.543 r  macw/clkin1_ibufg/O
-                         net (fo=1, estimated)        1.171    12.715    macw/clk_in_audio_clk_wiz
-    MMCME2_ADV_X0Y0      MMCME2_ADV (Prop_mmcme2_adv_CLKIN1_CLKOUT0)
-                                                     -7.279     5.436 r  macw/mmcm_adv_inst/CLKOUT0
-                         net (fo=1, estimated)        1.583     7.019    macw/clk_out_audio_clk_wiz
-    BUFGCTRL_X0Y0        BUFG (Prop_bufg_I_O)         0.091     7.110 r  macw/clkout1_buf/O
-                         net (fo=234, estimated)      1.433     8.543    my_rec/clk_out
-    SLICE_X51Y63         FDRE                                         r  my_rec/echo_out_reg[5]/C
-                         clock pessimism              0.482     9.024    
-                         clock uncertainty           -0.107     8.917    
-    SLICE_X51Y63         FDRE (Setup_fdre_C_D)        0.062     8.979    my_rec/echo_out_reg[5]
-  -------------------------------------------------------------------
-                         required time                          8.979    
-                         arrival time                          -4.605    
-  -------------------------------------------------------------------
-                         slack                                  4.374    
 
 
 

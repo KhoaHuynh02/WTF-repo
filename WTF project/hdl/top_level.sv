@@ -30,28 +30,28 @@ module top_level(
   //we do the latter in this lab.
 
 
-  logic record; //signal used to trigger recording
-  //definitely want this debounced:
-  debouncer rec_deb(  .clk_in(clk_m),
-                      .rst_in(sys_rst),
-                      .dirty_in(btn[1]),
-                      .clean_out(record));
+  // logic record; //signal used to trigger recording
+  // //definitely want this debounced:
+  // debouncer rec_deb(  .clk_in(clk_m),
+  //                     .rst_in(sys_rst),
+  //                     .dirty_in(btn[1]),
+  //                     .clean_out(record));
 
   //logic for controlling PDM associated modules:
   // logic [8:0] m_clock_counter; //used for counting for mic clock generation
-  logic audio_sample_valid;//single-cycle enable for samples at ~12 kHz (approx)
-  logic signed [7:0] mic_audio; //audio from microphone 8 bit unsigned at 12 kHz
-  logic[7:0] audio_data; //raw scaled audio data
+  // logic audio_sample_valid;//single-cycle enable for samples at ~12 kHz (approx)
+  // logic signed [7:0] mic_audio; //audio from microphone 8 bit unsigned at 12 kHz
+  // logic[7:0] audio_data; //raw scaled audio data
 
   //logic for interfacing with the microphone and generating 3.072 MHz signals
-  logic [7:0] pdm_tally;
-  logic [8:0] pdm_counter;
+  // logic [7:0] pdm_tally;
+  // logic [8:0] pdm_counter;
 
-  localparam PDM_COUNT_PERIOD = 4; // want to turn 98Mhz to 24 Mhz
-  localparam NUM_PDM_SAMPLES = 8; // value to use to tally the mic data to produce 8 bits samples
+  localparam PDM_COUNT_PERIOD = 32; // want to turn 98Mhz to 24 Mhz
+  // localparam NUM_PDM_SAMPLES = 8; // value to use to tally the mic data to produce 8 bits samples
 
   logic old_mic_clk; //prior mic clock for edge detection
-  logic sampled_mic_data; //one bit grabbed/held values of mic
+  // logic sampled_mic_data; //one bit grabbed/held values of mic
   
   logic pdm_signal_valid; //single-cycle signal at 24 MHz indicating pdm steps
   assign pdm_signal_valid = mic_clk && ~old_mic_clk; // a clock at 24 MHz
@@ -67,88 +67,161 @@ module top_level(
     old_mic_clk <= mic_clk;
   end
 
-  //generate 8 bits audio signal (samples at 3.072 MHZ)
+  
+  //generate 1 bits audio signal (samples at 3.072 MHZ)
+  /*
+  Next Step: convert this 3 Msps info to 16 bits fixed point number
+  */
+  logic signed [15:0] fixed_point_in;
+
   always_ff @(posedge clk_m)begin
     if (pdm_signal_valid) begin
-      sampled_mic_data    <= mic_data; // audio sampled at 24 MHZ
-
-      pdm_counter         <= (pdm_counter==NUM_PDM_SAMPLES)?0:pdm_counter + 1; // a counter that keeps track of when the tally should be reset
-      pdm_tally           <= (pdm_counter==NUM_PDM_SAMPLES)?mic_data :pdm_tally+mic_data; // tally to gather 8 bits of data
-      audio_sample_valid  <= (pdm_counter==NUM_PDM_SAMPLES); // trigger a valid tally of 8 bits samples (3.072 MHZ)
-      mic_audio           <= (pdm_counter==NUM_PDM_SAMPLES)?{~pdm_tally[7],pdm_tally[6:0]}:mic_audio; //8 bit signed data from microphone                                             
+      // "1" = 00000...10000000    "0" = 111111...00000
+      fixed_point_in <= (mic_data==1'b1)? {8'b1,8'h0} : {8'hFF,8'h0}; 
     end else begin
-      audio_sample_valid <= 0;
+      // audio_sample_valid <= 0;
+      fixed_point_in <= 0;
     end
   end
 
 
-  logic [7:0] single_audio; //recorder non-echo output
-  logic [7:0] echo_audio; //recorder echo output
+  // beginning of 4 stage FIR filter
+
+  // Stage 1:
+  // logic first_fir_valid_out;
+  // logic signed [15:0] first_fir_out;
+
+  // fir_module first_fir(
+  //   .clk(clk_m),
+  //   .rst(sys_rst),
+  //   .enable(pdm_signal_valid),
+  //   .data_in(fixed_point_in),
+  //   .valid_out(first_fir_valid_out),
+  //   .out(first_fir_out)
+  // );
+
+  // logic first_dec_in_valid;
+  // assign first_dec_in_valid = (first_fir_valid_out && pdm_signal_valid /* 3MHZ */);
+
+  // logic first_stage_valid_out;
+  // logic signed [15:0] first_stage_out;
+
+  // decimate first_decimate(
+  //   .clk(clk_m),
+  //   .rst(sys_rst),
+  //   .valid_in(first_dec_in_valid),
+  //   .data_in(first_fir_out),
+  //   .valid_out(first_stage_valid_out), // should follows frequency of 786KHZ
+  //   .data_out(first_stage_out) // should expect 786KHZ at 16 bit depths
+  // );
 
 
-  recorder my_rec(
-    .clk_in(clk_m), //system clock
-    .rst_in(sys_rst),//global reset
-    .record_in(record), //button indicating whether to record or not
-    .audio_valid_in(audio_sample_valid), //12 kHz audio sample valid signal
-    .audio_in(mic_audio), //8 bit signed data from microphone
-    .single_out(single_audio), //played back audio (8 bit signed at 12 kHz)
-    .echo_out(echo_audio) //played back audio (8 bit signed at 12 kHz)
-  );
+  // // Stage 2:
+  // logic second_fir_valid_out;
+  // logic signed [15:0] second_fir_out;
+
+  // fir_module second_fir(
+  //   .clk(clk_m),
+  //   .rst(sys_rst),
+  //   .enable(first_stage_valid_out),
+  //   .data_in(first_stage_out),
+  //   .valid_out(second_fir_valid_out),
+  //   .out(second_fir_out)
+  // );
+
+  // logic second_dec_in_valid;
+  // assign second_dec_in_valid = (second_fir_valid_out && first_stage_valid_out /* 786KHZ */);
+
+  // logic second_stage_valid_out;
+  // logic signed [15:0] second_stage_out;
+
+  // decimate second_decimate(
+  //   .clk(clk_m),
+  //   .rst(sys_rst),
+  //   .valid_in(second_dec_in_valid),
+  //   .data_in(second_fir_out),
+  //   .valid_out(second_stage_valid_out), // should follows frequency of 192KHZ
+  //   .data_out(second_stage_out) // should expect 192KHZ at 16 bit depths
+  // );
+
+
+
+
+
+
+
+
+
+
+
+
+  // logic [7:0] single_audio; //recorder non-echo output
+  // logic [7:0] echo_audio; //recorder echo output
+
+
+  // recorder my_rec(
+  //   .clk_in(clk_m), //system clock
+  //   .rst_in(sys_rst),//global reset
+  //   .record_in(record), //button indicating whether to record or not
+  //   .audio_valid_in(audio_sample_valid), //12 kHz audio sample valid signal
+  //   .audio_in(mic_audio), //8 bit signed data from microphone
+  //   .single_out(single_audio), //played back audio (8 bit signed at 12 kHz)
+  //   .echo_out(echo_audio) //played back audio (8 bit signed at 12 kHz)
+  // );
 
 
   //choose which signal to play:
-  logic [7:0] audio_data_sel;
+  // logic [7:0] audio_data_sel;
 
-  always_comb begin
-    if (sw[0])begin
-      // audio_data_sel = tone_750; //signed
-    end else if (sw[1])begin
-      // audio_data_sel = tone_440; //signed
-    end else if (sw[5])begin
-      audio_data_sel = mic_audio; //signed
-    end else if (sw[6])begin
-      audio_data_sel = single_audio; //signed
-    end else if (sw[7])begin
-      audio_data_sel = echo_audio; //signed
-    end else begin
-      audio_data_sel = mic_audio; //signed
-    end
-  end
+  // always_comb begin
+  //   if (sw[0])begin
+  //     // audio_data_sel = tone_750; //signed
+  //   end else if (sw[1])begin
+  //     // audio_data_sel = tone_440; //signed
+  //   end else if (sw[5])begin
+  //     // audio_data_sel = mic_audio; //signed
+  //   end else if (sw[6])begin
+  //     // audio_data_sel = single_audio; //signed
+  //   end else if (sw[7])begin
+  //     // audio_data_sel = echo_audio; //signed
+  //   end else begin
+  //     // audio_data_sel = mic_audio; //signed
+  //   end
+  // end
 
 
-  logic signed [7:0] vol_out; //can be signed or not signed...doesn't really matter
+  // logic signed [7:0] vol_out; //can be signed or not signed...doesn't really matter
   // all this does is convey the output of vol_out to the input of the pdm
   // since it isn't used directly with any sort of math operation its signedness
   // is not as important.
-  volume_control vc (.vol_in(sw[15:13]),.signal_in(audio_data_sel), .signal_out(vol_out));
+  // volume_control vc (.vol_in(sw[15:13]),.signal_in(audio_data_sel), .signal_out(vol_out));
 
 
   //PDM:
-  logic pdm_out_signal; //an inherently digital signal (0 or 1..no need to make signed)
+  // logic pdm_out_signal; //an inherently digital signal (0 or 1..no need to make signed)
   //the value is encoded using Pulse Density Modulation
-  logic audio_out; //value that drives output channels directly
+  // logic audio_out; //value that drives output channels directly
 
-  pdm my_pdm(
-    .clk_in(clk_m),
-    .rst_in(sys_rst),
-    .level_in(vol_out),
-    .tick_in(pdm_signal_valid),
-    .pdm_out(pdm_out_signal)
-  );
+  // pdm my_pdm(
+  //   .clk_in(clk_m),
+  //   .rst_in(sys_rst),
+  //   .level_in(vol_out),
+  //   .tick_in(pdm_signal_valid),
+  //   .pdm_out(pdm_out_signal)
+  // );
 
-  always_comb begin
-    case (sw[4:3])
-      // 2'b00: audio_out = pwm_out_signal;
-      2'b00: audio_out = audio_out;
-      2'b01: audio_out = pdm_out_signal;
-      2'b10: audio_out = sampled_mic_data;
-      2'b11: audio_out = 0;
-    endcase
-  end
+  // always_comb begin
+  //   case (sw[4:3])
+  //     // 2'b00: audio_out = pwm_out_signal;
+  //     2'b00: audio_out = audio_out;
+  //     2'b01: audio_out = pdm_out_signal;
+  //     // 2'b10: audio_out = sampled_mic_data;
+  //     2'b11: audio_out = 0;
+  //   endcase
+  // end
 
-  assign spkl = audio_out;
-  assign spkr = audio_out;
+  // assign spkl = audio_out;
+  // assign spkr = audio_out;
 
 endmodule // top_level
 
