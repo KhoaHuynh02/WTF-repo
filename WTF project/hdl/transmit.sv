@@ -1,119 +1,97 @@
 `timescale 1ns / 1ps
 `default_nettype none // prevents system from inferring an undeclared logic (good practice)
 
-// assumming that the information comes in at 12khz at 8 bits depth
-module transmit (
+// assumming that the information comes in at 12khz at 16 bits depth
+module transmit #(parameter BIT_DEPTH = 16)
+(
     input wire clk_in, // 98.3 MHZ ~ 10ns
     input wire rst_in,
-    input wire record_done,
     input wire [7:0] audio_in, // audio data in
     input wire audio_valid_in, //12 khz
     output logic valid_out,
     output logic out
 );
+
     localparam IDLE = 0;
     localparam SYNC = 1;
     localparam SEND = 2;
 
-    localparam SYNC_LOW = 400; // 400 of 10 ns
-    localparam SYNC_HIGH = 600; // 600 of 10 ns
-    localparam MAX_COUNTER = SYNC_LOW + SYNC_HIGH;
+    localparam SYNC_LO = 400;
+    localparam SYNC_HI = 600;
+    localparam SYNC_PERIOD = SYNC_LO + SYNC_HI;
 
-    localparam LOW = 200;
-    localparam ZERO_LEVEL = LOW + 200;
-    localparam ONE_LEVEL = LOW + 600;
+    localparam SEND_LO = 200;
+    localparam SEND_ZERO = 200;
+    localparam SEND_ONE = 600;
+    localparam SEND_ZERO_PERIOD = SEND_LO + SEND_ZERO;
+    localparam SEND_ONE_PERIOD = SEND_LO + SEND_ONE;
 
     logic [1:0] state = IDLE;
-    logic [7:0] audio_buffer = 0;
-    logic [$clog2(MAX_COUNTER)-1:0] counter;
-    logic [$clog2(8)-1:0] bits_sent = 0;
+    logic [BIT_DEPTH-1:0] audio_buffer = 0;
+    logic [$clog2(SYNC_PERIOD)-1:0] period = 0;
+    logic [$clogs(BIT_DEPTH)] sent_bits = 0;
 
-
-    always_ff @(posedge clk_in ) begin
-        if(rst_in) begin
-            //reset variables and states
+    always_ff(posedge clk_in) begin
+        if (rst_in) begin
             state <= IDLE;
-            audio_buffer <= 0;
-            counter <= 0;
-            bits_sent <= 0;
+            audio_buffer = 0;
+            period <= 0;
+            sent_bits <= 0;
             valid_out <= 0;
             out <= 0;
-        end
-
-        case(state)
-            IDLE: begin
-                // upon receiving a valid audio every 12khz
-                // start the process of sending
-                if(audio_valid_in) begin
-                    state <= SYNC;
-                    audio_buffer <= audio_in; // load in the audio to buffer
-                    counter <= 0;
-                    bits_sent <= 0;
-                    valid_out <= 1;
-                    out <= 0;
+        end else begin
+            case(state)
+                IDLE: begin
+                    if (audio_valid_in) begin
+                        state <= SYNC;
+                        audio_buffer <= audio_in;
+                        period <= 0;
+                        sent_bits <= BIT_DEPTH;
+                        valid_out <= 1;
+                        out <= 0;
+                    end
                 end
-            end
-            
-            SYNC: begin
-                // counter that counts how many 10ns passed
-                counter = counter + 1;
-                assert(valid_out == 1);
-                // threshold for the low of the sync
-                if(counter == SYNC_LOW) begin
-                    out <= 1;
-                end 
-                // mark the end of the sync signal, start sending
-                else if (counter == SYNC_LOW + SYNC_HIGH) begin
-                    state <= SEND;
-                    counter <= 0;
-                    bits_sent <= 0;
-                    valid_out <= 1;
-                    out <= 0;
-                end
-            end
 
-            SEND: begin
-                // counter that counts how many 10ns passed
-                counter = counter + 1;
-                assert(valid_out == 1);
-                // if we have sent 8 bits then we are done for 1 cycle
-                if(bits_sent >= 8) begin
-                    state <= IDLE;
-                    audio_buffer <= 0;
-                    counter <= 0;
-                    bits_sent <= 0;
-                    valid_out <= 0;
-                    out <= 0;
-                end 
-                else begin
-                    // transition out of LOW
-                    if(counter == LOW) begin
+                SYNC: begin
+                    period <= period + 1;
+                    if (period == SYNC_LO) begin
                         out <= 1;
+                    end else if (period == SYNC_PERIOD) begin
+                        state <= SEND;
+                        period <= 0;
+                        out <= 0;
                     end
+                end
 
-                    // encoding for "0"
-                    if(audio_buffer[7] == 1'b0) begin
-                        if (counter == ZERO_LEVEL) begin
-                            audio_buffer <= audio_buffer << 1;
-                            counter <= 0;
-                            bits_sent <= bits_sent + 1; // successfully sent a bit
-                            out <= 0; // end of "0" frame
-                        end
-                    end 
-                    // encoding for "1"
-                    else begin
-                        if (counter == ONE_LEVEL) begin
-                            audio_buffer <= audio_buffer << 1;
-                            counter <= 0;
-                            bits_sent <= bits_sent + 1;
-                            out <= 0;
+                SEND: begin
+                    period <= period + 1;
+                    if (sent_bits == 0) begin
+                        state <= IDLE;
+                        valid_out <= 0;
+                        out <= 0;
+                    end else begin
+                        if (period == SEND_LO) begin
+                            out <= 1;
+                        end else begin
+                            if (audio_buffer[sent_bits-1] == 0) begin
+                                if (period == SEND_ZERO_PERIOD) begin
+                                    period <= 0;
+                                    sent_bits <= sent_bits - 1;
+                                    out <= 0;
+                                end
+                            end else begin
+                                if (period == SEND_ONE_PERIOD) begin
+                                    period <= 0;
+                                    sent_bits <= sent_bits - 1;
+                                    out <= 0;
+                                end
+                            end
                         end
                     end
                 end
-            end        
-        endcase
+            endcase
+        end
     end
-
 endmodule
 
 `default_nettype wire
