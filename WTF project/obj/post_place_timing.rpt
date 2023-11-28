@@ -1,7 +1,7 @@
 Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2023 Advanced Micro Devices, Inc. All Rights Reserved.
 ---------------------------------------------------------------------------------------------------------------------------------------------
 | Tool Version : Vivado v.2023.1 (lin64) Build 3865809 Sun May  7 15:04:56 MDT 2023
-| Date         : Tue Nov 21 13:38:48 2023
+| Date         : Tue Nov 28 01:21:16 2023
 | Host         : worker running 64-bit Ubuntu 20.04.6 LTS
 | Command      : report_timing -file obj/post_place_timing.rpt
 | Design       : top_level
@@ -13,24 +13,24 @@ Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2023 Advanc
 Timing Report
 
 Slack:                    inf
-  Source:                 sw[0]
+  Source:                 sw[4]
                             (input port)
-  Destination:            led[0]
+  Destination:            spkl
                             (output port)
   Path Group:             (none)
   Path Type:              Max at Slow Process Corner
-  Data Path Delay:        9.262ns  (logic 4.985ns (53.821%)  route 4.277ns (46.179%))
+  Data Path Delay:        9.263ns  (logic 5.015ns (54.139%)  route 4.248ns (45.861%))
   Logic Levels:           2  (IBUF=1 OBUF=1)
 
     Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
   -------------------------------------------------------------------    -------------------
-    G1                                                0.000     0.000 r  sw[0] (IN)
-                         net (fo=0)                   0.000     0.000    sw[0]
-    G1                   IBUF (Prop_ibuf_I_O)         1.465     1.465 r  sw_IBUF[0]_inst/O
-                         net (fo=1, estimated)        4.277     5.742    led_OBUF[0]
-    C13                  OBUF (Prop_obuf_I_O)         3.519     9.262 r  led_OBUF[0]_inst/O
-                         net (fo=0)                   0.000     9.262    led[0]
-    C13                                                               r  led[0] (OUT)
+    E1                                                0.000     0.000 r  sw[4] (IN)
+                         net (fo=0)                   0.000     0.000    sw[4]
+    E1                   IBUF (Prop_ibuf_I_O)         1.465     1.465 r  sw_IBUF[4]_inst/O
+                         net (fo=3, estimated)        4.248     5.713    spkr_OBUF
+    B13                  OBUF (Prop_obuf_I_O)         3.550     9.263 r  spkl_OBUF_inst/O
+                         net (fo=0)                   0.000     9.263    spkl
+    B13                                                               r  spkl (OUT)
   -------------------------------------------------------------------    -------------------
 
 

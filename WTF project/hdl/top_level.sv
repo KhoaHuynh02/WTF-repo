@@ -53,14 +53,13 @@ module top_level(
   logic old_mic_clk; //prior mic clock for edge detection
   // logic sampled_mic_data; //one bit grabbed/held values of mic
   
-  logic pdm_signal_valid; //single-cycle signal at 24 MHz indicating pdm steps
-  assign pdm_signal_valid = mic_clk && ~old_mic_clk; // a clock at 24 MHz
+  logic pdm_signal_valid; //single-cycle signal at 3.072 MHz indicating pdm steps
+  assign pdm_signal_valid = mic_clk && ~old_mic_clk; // a clock at 3.072 MHz
 
 
 
   logic [2:0] m_clock_counter; //used for counting for mic clock generation
   //generate clock signal for microphone
-  //microphone signal at ~24 MHz
   always_ff @(posedge clk_m)begin
     mic_clk <= m_clock_counter < PDM_COUNT_PERIOD/2;
     m_clock_counter <= (m_clock_counter==PDM_COUNT_PERIOD-1)?0:m_clock_counter+1;
@@ -88,67 +87,118 @@ module top_level(
   // beginning of 4 stage FIR filter
 
   // Stage 1:
-  // logic first_fir_valid_out;
-  // logic signed [15:0] first_fir_out;
+  logic first_fir_valid_out;
+  logic signed [15:0] first_fir_out;
 
-  // fir_module first_fir(
-  //   .clk(clk_m),
-  //   .rst(sys_rst),
-  //   .enable(pdm_signal_valid),
-  //   .data_in(fixed_point_in),
-  //   .valid_out(first_fir_valid_out),
-  //   .out(first_fir_out)
-  // );
+  fir_module first_fir(
+    .clk(clk_m),
+    .rst(sys_rst),
+    .enable(pdm_signal_valid),
+    .data_in(fixed_point_in),
+    .valid_out(first_fir_valid_out),
+    .out(first_fir_out)
+  );
 
-  // logic first_dec_in_valid;
-  // assign first_dec_in_valid = (first_fir_valid_out && pdm_signal_valid /* 3MHZ */);
+  logic first_dec_in_valid;
+  assign first_dec_in_valid = (first_fir_valid_out && pdm_signal_valid /* 3MHZ */);
 
-  // logic first_stage_valid_out;
-  // logic signed [15:0] first_stage_out;
+  logic first_stage_valid_out;
+  logic signed [15:0] first_stage_out;
 
-  // decimate first_decimate(
-  //   .clk(clk_m),
-  //   .rst(sys_rst),
-  //   .valid_in(first_dec_in_valid),
-  //   .data_in(first_fir_out),
-  //   .valid_out(first_stage_valid_out), // should follows frequency of 786KHZ
-  //   .data_out(first_stage_out) // should expect 786KHZ at 16 bit depths
-  // );
+  decimate first_decimate(
+    .clk(clk_m),
+    .rst(sys_rst),
+    .valid_in(first_dec_in_valid),
+    .data_in(first_fir_out),
+    .valid_out(first_stage_valid_out), // should follows frequency of 786KHZ
+    .data_out(first_stage_out) // should expect 786KHZ at 16 bit depths
+  );
 
+  // Stage 2:
+  logic second_fir_valid_out;
+  logic signed [15:0] second_fir_out;
 
-  // // Stage 2:
-  // logic second_fir_valid_out;
-  // logic signed [15:0] second_fir_out;
+  fir_module second_fir(
+    .clk(clk_m),
+    .rst(sys_rst),
+    .enable(first_stage_valid_out),
+    .data_in(first_stage_out),
+    .valid_out(second_fir_valid_out),
+    .out(second_fir_out)
+  );
 
-  // fir_module second_fir(
-  //   .clk(clk_m),
-  //   .rst(sys_rst),
-  //   .enable(first_stage_valid_out),
-  //   .data_in(first_stage_out),
-  //   .valid_out(second_fir_valid_out),
-  //   .out(second_fir_out)
-  // );
+  logic second_dec_in_valid;
+  assign second_dec_in_valid = (second_fir_valid_out && first_stage_valid_out /* 786KHZ */);
 
-  // logic second_dec_in_valid;
-  // assign second_dec_in_valid = (second_fir_valid_out && first_stage_valid_out /* 786KHZ */);
+  logic second_stage_valid_out;
+  logic signed [15:0] second_stage_out;
 
-  // logic second_stage_valid_out;
-  // logic signed [15:0] second_stage_out;
+  decimate second_decimate(
+    .clk(clk_m),
+    .rst(sys_rst),
+    .valid_in(second_dec_in_valid),
+    .data_in(second_fir_out),
+    .valid_out(second_stage_valid_out), // should follows frequency of 192KHZ
+    .data_out(second_stage_out) // should expect 192KHZ at 16 bit depths
+  );
 
-  // decimate second_decimate(
-  //   .clk(clk_m),
-  //   .rst(sys_rst),
-  //   .valid_in(second_dec_in_valid),
-  //   .data_in(second_fir_out),
-  //   .valid_out(second_stage_valid_out), // should follows frequency of 192KHZ
-  //   .data_out(second_stage_out) // should expect 192KHZ at 16 bit depths
-  // );
+  // Stage 3:
+  logic third_fir_valid_out;
+  logic signed [15:0] third_fir_out;
 
+  fir_module third_fir(
+    .clk(clk_m),
+    .rst(sys_rst),
+    .enable(second_stage_valid_out),
+    .data_in(second_stage_out),
+    .valid_out(third_fir_valid_out),
+    .out(third_fir_out)
+  );
 
+  logic third_dec_in_valid;
+  assign third_dec_in_valid = (third_fir_valid_out && second_stage_valid_out /* 192KHZ */);
 
+  logic third_stage_valid_out;
+  logic signed [15:0] third_stage_out;
 
+  decimate third_decimate(
+    .clk(clk_m),
+    .rst(sys_rst),
+    .valid_in(third_dec_in_valid),
+    .data_in(third_fir_out),
+    .valid_out(third_stage_valid_out), // should follows frequency of 48KHZ
+    .data_out(third_stage_out) // should expect 48KHZ at 16 bit depths
+  );
 
+  // Stage 4:
+  logic fourth_fir_valid_out;
+  logic signed [15:0] fourth_fir_out;
 
+  fir_module fourth_fir(
+    .clk(clk_m),
+    .rst(sys_rst),
+    .enable(third_stage_valid_out),
+    .data_in(third_stage_out),
+    .valid_out(fourth_fir_valid_out),
+    .out(fourth_fir_out)
+  );
+
+  logic fourth_dec_in_valid;
+  assign fourth_dec_in_valid = (fourth_fir_valid_out && third_stage_valid_out /* 48KHZ */);
+
+  logic fourth_stage_valid_out;
+  // logic signed [15:0] fourth_stage_out;
+  logic signed [15:0] lowpassed_out;
+
+  decimate fourth_decimate(
+    .clk(clk_m),
+    .rst(sys_rst),
+    .valid_in(fourth_dec_in_valid),
+    .data_in(fourth_fir_out),
+    .valid_out(fourth_stage_valid_out), // should follows frequency of 12KHZ
+    .data_out(lowpassed_out) // should expect 12KHZ at 16 bit depths
+  );
+  // 4 stages FIR filter complete
 
 
 
@@ -191,45 +241,46 @@ module top_level(
 
 
   // logic signed [7:0] vol_out; //can be signed or not signed...doesn't really matter
+  logic signed [15:0] vol_out;
   // all this does is convey the output of vol_out to the input of the pdm
   // since it isn't used directly with any sort of math operation its signedness
   // is not as important.
-  // volume_control vc (.vol_in(sw[15:13]),.signal_in(audio_data_sel), .signal_out(vol_out));
+  volume_control vc (.vol_in(sw[15:13]),.signal_in(lowpassed_out), .signal_out(vol_out));
 
 
   //PDM:
-  // logic pdm_out_signal; //an inherently digital signal (0 or 1..no need to make signed)
+  logic pdm_out_signal; //an inherently digital signal (0 or 1..no need to make signed)
   //the value is encoded using Pulse Density Modulation
-  // logic audio_out; //value that drives output channels directly
+  logic audio_out; //value that drives output channels directly
 
-  // pdm my_pdm(
-  //   .clk_in(clk_m),
-  //   .rst_in(sys_rst),
-  //   .level_in(vol_out),
-  //   .tick_in(pdm_signal_valid),
-  //   .pdm_out(pdm_out_signal)
-  // );
+  pdm my_pdm(
+    .clk_in(clk_m),
+    .rst_in(sys_rst),
+    .level_in(vol_out),
+    .tick_in(pdm_signal_valid),
+    .pdm_out(pdm_out_signal)
+  );
 
-  // always_comb begin
-  //   case (sw[4:3])
-  //     // 2'b00: audio_out = pwm_out_signal;
-  //     2'b00: audio_out = audio_out;
-  //     2'b01: audio_out = pdm_out_signal;
-  //     // 2'b10: audio_out = sampled_mic_data;
-  //     2'b11: audio_out = 0;
-  //   endcase
-  // end
+  always_comb begin
+    case (sw[4])
+      // 2'b00: audio_out = pwm_out_signal;
+      // 2'b00: audio_out = audio_out;
+      1'b1: audio_out = pdm_out_signal;
+      // 2'b10: audio_out = sampled_mic_data;
+      1'b0: audio_out = 0;
+    endcase
+  end
 
-  // assign spkl = audio_out;
-  // assign spkr = audio_out;
+  assign spkl = audio_out;
+  assign spkr = audio_out;
 
 endmodule // top_level
 
 //Volume Control
 module volume_control (
   input wire [2:0] vol_in,
-  input wire signed [7:0] signal_in,
-  output logic signed [7:0] signal_out);
+  input wire signed [15:0] signal_in,
+  output logic signed [15:0] signal_out);
     logic [2:0] shift;
     assign shift = 3'd7 - vol_in;
     assign signal_out = signal_in>>>shift;
