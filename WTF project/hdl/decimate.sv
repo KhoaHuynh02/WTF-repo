@@ -15,11 +15,24 @@ module decimate #(
     output logic signed [WIDTH-1:0]data_out
 );
 
-logic counter = 0;
+logic [$clog2(DECIMATE_FACTOR):0] counter;
+
+
+logic enable_edge;
+logic old_edge;
+logic new_edge;
+assign enable_edge = new_edge && ~old_edge; // detect an valid step
+
+always_ff @(posedge clk) begin
+    new_edge <= valid_in;
+    old_edge <= new_edge;
+end
+
+
 always_ff @(posedge clk) begin
     if(rst) begin
         counter <= 0;
-    end else if (valid_in) begin
+    end else if (enable_edge) begin
         counter <= (counter == DECIMATE_FACTOR) ? 0 : counter + 1;
         valid_out <= (counter == DECIMATE_FACTOR);
         if(valid_out) begin

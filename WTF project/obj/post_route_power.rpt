@@ -1,7 +1,7 @@
 Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2023 Advanced Micro Devices, Inc. All Rights Reserved.
 -------------------------------------------------------------------------------------------------------------------------------------------------
 | Tool Version     : Vivado v.2023.1 (lin64) Build 3865809 Sun May  7 15:04:56 MDT 2023
-| Date             : Tue Nov 28 18:36:52 2023
+| Date             : Wed Nov 29 16:53:55 2023
 | Host             : worker running 64-bit Ubuntu 20.04.6 LTS
 | Command          : report_power -file obj/post_route_power.rpt
 | Design           : top_level
@@ -49,17 +49,18 @@ Table of Contents
 1.1 On-Chip Components
 ----------------------
 
-+--------------+-----------+----------+-----------+-----------------+
-| On-Chip      | Power (W) | Used     | Available | Utilization (%) |
-+--------------+-----------+----------+-----------+-----------------+
-| Clocks       |     0.000 |        3 |       --- |             --- |
-| Slice Logic  |     0.000 |        2 |       --- |             --- |
-|   Others     |     0.000 |        2 |       --- |             --- |
-| Signals      |    <0.001 |       16 |       --- |             --- |
-| I/O          |     0.013 |       41 |       210 |           19.52 |
-| Static Power |     0.072 |          |           |                 |
-| Total        |     0.085 |          |           |                 |
-+--------------+-----------+----------+-----------+-----------------+
++----------------+-----------+----------+-----------+-----------------+
+| On-Chip        | Power (W) | Used     | Available | Utilization (%) |
++----------------+-----------+----------+-----------+-----------------+
+| Clocks         |     0.000 |        3 |       --- |             --- |
+| Slice Logic    |    <0.001 |        3 |       --- |             --- |
+|   LUT as Logic |    <0.001 |        1 |     32600 |           <0.01 |
+|   Others       |     0.000 |        2 |       --- |             --- |
+| Signals        |    <0.001 |       18 |       --- |             --- |
+| I/O            |     0.013 |       42 |       210 |           20.00 |
+| Static Power   |     0.072 |          |           |                 |
+| Total          |     0.085 |          |           |                 |
++----------------+-----------+----------+-----------+-----------------+
 
 
 1.2 Power Supply Summary

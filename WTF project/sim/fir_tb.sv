@@ -9,30 +9,16 @@ module fir_tb();
     logic clk_3mhz;
     logic clk_slow;
     logic signed [WIDTH-1:0] data_in;
-    // logic signed [7:0] amp_out;
     
-    
-    
-    // logic signed [7:0] amp_out;
-    // sine_generator sine_gen(
-    //     .clk_in(clk_100mhz),
-    //     .rst_in(rst_in),
-    //     .step_in(clk_3mhz),
-    //     .amp_out(amp_out)
-    // );
-    // assign data_in = { {8{amp_out[7]}}, amp_out[7:0] };
-
-    // sine_wave_gen sine_gen(
-    // //declare input and output
-    // .clk(clk_3mhz),
-    // .data_out(data_in)
-    // );
-
-    sine_wave_gen sine_gen(
-        .clk(clk_3mhz),
+    // sine.sv
+    logic signed [7:0] amp_out;
+    sine_generator sine_gen(
+        .clk_in(clk_100mhz),
         .rst_in(rst_in),
-        .data_out(data_in)
+        .step_in(clk_3mhz),
+        .amp_out(amp_out)
     );
+    assign data_in = { {4{amp_out[7]}},amp_out[7:0],{4{amp_out[0]}} };
 
     logic valid_out;
     logic signed [WIDTH-1:0] fir_out;
@@ -46,18 +32,34 @@ module fir_tb();
             .out(fir_out)
           );
 
-    logic valid_out2;
-    logic signed [WIDTH-1:0] fir_out2;
+    logic first_dec_in_valid;
+    assign first_dec_in_valid = (valid_out && clk_3mhz /* 3MHZ */);
 
-    fir_module uut2
-          ( .clk(clk_100mhz),
-            .rst(rst_in),
-            .enable(valid_out && clk_3mhz),
-            .data_in(fir_out),
+    logic first_stage_valid_out;
+    logic signed [15:0] first_stage_out;
+
+    decimate first_decimate(
+      .clk(clk_100mhz),
+      .rst(rst_in),
+      .valid_in(first_dec_in_valid),
+      .data_in(fir_out),
+      .valid_out(first_stage_valid_out), // should follows frequency of 786KHZ
+      .data_out(first_stage_out) // should expect 786KHZ at 16 bit depths
+    );
+
+
+    // logic valid_out2;
+    // logic signed [WIDTH-1:0] fir_out2;
+
+    // fir_module uut2
+    //       ( .clk(clk_100mhz),
+    //         .rst(rst_in),
+    //         .enable(valid_out && clk_3mhz),
+    //         .data_in(fir_out),
             
-            .valid_out(valid_out2),
-            .out(fir_out2)
-          );
+    //         .valid_out(valid_out2),
+    //         .out(fir_out2)
+    //       );
     
     
 
@@ -93,7 +95,7 @@ module fir_tb();
     clk_3mhz = 0;
     clk_slow = 0;
     rst_in = 0;
-    data_in = 0;
+    // data_in = 0;
     #10;
     rst_in = 1;
     #10;

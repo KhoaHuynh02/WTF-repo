@@ -1,7 +1,7 @@
 Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2023 Advanced Micro Devices, Inc. All Rights Reserved.
 ---------------------------------------------------------------------------------------------------------------------------------------------
 | Tool Version : Vivado v.2023.1 (lin64) Build 3865809 Sun May  7 15:04:56 MDT 2023
-| Date         : Tue Nov 28 18:36:44 2023
+| Date         : Wed Nov 29 16:53:46 2023
 | Host         : worker running 64-bit Ubuntu 20.04.6 LTS
 | Command      : report_timing -file obj/post_place_timing.rpt
 | Design       : top_level
@@ -19,17 +19,19 @@ Slack:                    inf
                             (output port)
   Path Group:             (none)
   Path Type:              Max at Slow Process Corner
-  Data Path Delay:        9.263ns  (logic 5.015ns (54.139%)  route 4.248ns (45.861%))
-  Logic Levels:           2  (IBUF=1 OBUF=1)
+  Data Path Delay:        9.744ns  (logic 5.139ns (52.739%)  route 4.605ns (47.261%))
+  Logic Levels:           3  (IBUF=1 LUT2=1 OBUF=1)
 
     Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
   -------------------------------------------------------------------    -------------------
     E1                                                0.000     0.000 r  sw[4] (IN)
                          net (fo=0)                   0.000     0.000    sw[4]
     E1                   IBUF (Prop_ibuf_I_O)         1.465     1.465 r  sw_IBUF[4]_inst/O
-                         net (fo=3, estimated)        4.248     5.713    spkr_OBUF
-    B13                  OBUF (Prop_obuf_I_O)         3.550     9.263 r  spkl_OBUF_inst/O
-                         net (fo=0)                   0.000     9.263    spkl
+                         net (fo=2, estimated)        2.719     4.184    led_OBUF[4]
+    SLICE_X0Y89          LUT2 (Prop_lut2_I1_O)        0.124     4.308 r  spkl_OBUF_inst_i_1/O
+                         net (fo=2, estimated)        1.886     6.194    spkr_OBUF
+    B13                  OBUF (Prop_obuf_I_O)         3.550     9.744 r  spkl_OBUF_inst/O
+                         net (fo=0)                   0.000     9.744    spkl
     B13                                                               r  spkl (OUT)
   -------------------------------------------------------------------    -------------------
 

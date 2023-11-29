@@ -9,7 +9,7 @@ module pdm(
             input wire tick_in,
             output logic pdm_out
   );
-  logic signed [16:0] flip_out;  //9 bits to account for overflow/underflow
+  logic signed [16:0] flip_out;  //17 bits to account for overflow/underflow
   assign pdm_out = (flip_out[16]) ? 0:1;
   
   always_ff @(posedge clk_in) begin
