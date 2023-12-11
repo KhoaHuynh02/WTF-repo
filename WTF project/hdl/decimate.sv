@@ -18,28 +18,29 @@ module decimate #(
 logic [$clog2(DECIMATE_FACTOR):0] counter;
 
 
-logic enable_edge;
-logic old_edge;
-logic new_edge;
-assign enable_edge = new_edge && ~old_edge; // detect an valid step
+// logic enable_edge;
+// logic old_edge;
+// logic new_edge;
+// assign enable_edge = new_edge && ~old_edge; // detect an valid step
 
-always_ff @(posedge clk) begin
-    new_edge <= valid_in;
-    old_edge <= new_edge;
-end
+// always_ff @(posedge clk) begin
+//     new_edge <= valid_in;
+//     old_edge <= new_edge;
+// end
 
 
 always_ff @(posedge clk) begin
     if(rst) begin
         counter <= 0;
-    end else if (enable_edge) begin
-        counter <= (counter == DECIMATE_FACTOR) ? 0 : counter + 1;
-        valid_out <= (counter == DECIMATE_FACTOR);
-        if(valid_out) begin
-            data_out <= data_in;
+    end else begin
+        counter <= (counter == DECIMATE_FACTOR) ? 0 : counter;
+        if(valid_in) begin
+            counter <= (counter == DECIMATE_FACTOR) ? 0 : counter + 1;
         end
+        valid_out <= (counter == DECIMATE_FACTOR);
     end
 end
+assign data_out = valid_out ? data_in : data_out;
 endmodule
 
 

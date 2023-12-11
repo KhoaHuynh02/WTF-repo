@@ -47,7 +47,7 @@ module top_level(
   // logic [7:0] pdm_tally;
   // logic [8:0] pdm_counter;
 
-  localparam PDM_COUNT_PERIOD = 32; // want to turn 98Mhz to 24 Mhz
+  localparam PDM_COUNT_PERIOD = 32; //
   // localparam NUM_PDM_SAMPLES = 8; // value to use to tally the mic data to produce 8 bits samples
 
   logic old_mic_clk; //prior mic clock for edge detection
@@ -58,7 +58,7 @@ module top_level(
 
 
 
-  logic [2:0] m_clock_counter; //used for counting for mic clock generation
+  logic [5:0] m_clock_counter; //used for counting for mic clock generation
   //generate clock signal for microphone
   always_ff @(posedge clk_m)begin
     mic_clk <= m_clock_counter < PDM_COUNT_PERIOD/2;
@@ -72,139 +72,84 @@ module top_level(
   Next Step: convert this 3 Msps info to 16 bits fixed point number
   */
   logic signed [15:0] fixed_point_in;
+  logic signed [7:0] fixed_point_8bits;
 
   always_ff @(posedge clk_m)begin
     if (pdm_signal_valid) begin
       // "1" = 00000...10000000    "0" = 111111...00000
       // fixed_point_in <= (mic_data==1'b1)? {8'b1,8'h0} : {8'hFF,8'h0}; 
       fixed_point_in <= {{8{mic_data}},8'h00};
+      fixed_point_8bits <= {{4{mic_data}},4'h00};
     end else begin
       // audio_sample_valid <= 0;
       fixed_point_in <= 0;
+      fixed_point_8bits <= 0;
     end
   end
 
 
   // beginning of 4 stage FIR filter
+  logic first_valid_out;
+  logic signed [7:0] first_data_out;
 
   // Stage 1:
-  logic first_fir_valid_out;
-  logic signed [15:0] first_fir_out;
-
-  fir_module first_fir(
-    .clk(clk_m),
-    .rst(sys_rst),
-    .enable(pdm_signal_valid),
-    .data_in(fixed_point_in),
-    .valid_out(first_fir_valid_out),
-    .out(first_fir_out)
+  fir_and_decimate_8bits stage_one(
+     .clk(clk_m),
+     .rst(sys_rst),
+     .single_valid_in(pdm_signal_valid), // single cycle 3.072 MHz
+     .data_in(fixed_point_8bits),
+     .fad_valid_out(first_valid_out), // single cycle 768 KHz
+     .fad_data_out(first_data_out)
   );
-
-  logic first_dec_in_valid;
-  assign first_dec_in_valid = (first_fir_valid_out && pdm_signal_valid /* 3MHZ */);
-
-  logic first_stage_valid_out;
-  logic signed [15:0] first_stage_out;
-
-  decimate first_decimate(
-    .clk(clk_m),
-    .rst(sys_rst),
-    .valid_in(first_dec_in_valid),
-    .data_in(first_fir_out),
-    .valid_out(first_stage_valid_out), // should follows frequency of 786KHZ
-    .data_out(first_stage_out) // should expect 786KHZ at 16 bit depths
-  );
+  
 
   // // Stage 2:
-  // logic second_fir_valid_out;
-  // logic signed [15:0] second_fir_out;
-
-  // fir_module second_fir(
+  // logic second_valid_out;
+  // logic signed [7:0] second_data_out;
+  // fir_and_decimate_8bits stage_two(
   //   .clk(clk_m),
   //   .rst(sys_rst),
-  //   .enable(first_stage_valid_out),
-  //   .data_in(first_stage_out),
-  //   .valid_out(second_fir_valid_out),
-  //   .out(second_fir_out)
-  // );
-
-  // logic second_dec_in_valid;
-  // assign second_dec_in_valid = (second_fir_valid_out && first_stage_valid_out /* 786KHZ */);
-
-  // logic second_stage_valid_out;
-  // logic signed [15:0] second_stage_out;
-
-  // decimate second_decimate(
-  //   .clk(clk_m),
-  //   .rst(sys_rst),
-  //   .valid_in(second_dec_in_valid),
-  //   .data_in(second_fir_out),
-  //   .valid_out(second_stage_valid_out), // should follows frequency of 192KHZ
-  //   .data_out(second_stage_out) // should expect 192KHZ at 16 bit depths
+  //   .single_valid_in(first_valid_out), // single cycle 768 KHz
+  //   .data_in(first_data_out),
+  //   .fad_valid_out(second_valid_out), // single cycle 192 KHz
+  //   .fad_data_out(second_data_out)
   // );
 
   // // Stage 3:
-  // logic third_fir_valid_out;
-  // logic signed [15:0] third_fir_out;
+  // logic third_valid_out;
+  // logic signed [7:0] third_data_out;
 
-  // fir_module third_fir(
+  // fir_and_decimate_8bits stage_three(
   //   .clk(clk_m),
   //   .rst(sys_rst),
-  //   .enable(second_stage_valid_out),
-  //   .data_in(second_stage_out),
-  //   .valid_out(third_fir_valid_out),
-  //   .out(third_fir_out)
-  // );
-
-  // logic third_dec_in_valid;
-  // assign third_dec_in_valid = (third_fir_valid_out && second_stage_valid_out /* 192KHZ */);
-
-  // logic third_stage_valid_out;
-  // logic signed [15:0] third_stage_out;
-
-  // decimate third_decimate(
-  //   .clk(clk_m),
-  //   .rst(sys_rst),
-  //   .valid_in(third_dec_in_valid),
-  //   .data_in(third_fir_out),
-  //   .valid_out(third_stage_valid_out), // should follows frequency of 48KHZ
-  //   .data_out(third_stage_out) // should expect 48KHZ at 16 bit depths
+  //   .single_valid_in(second_valid_out), // single cycle 192 KHz
+  //   .data_in(second_data_out),
+  //   .fad_valid_out(third_valid_out), // single cycle 48 KHz
+  //   .fad_data_out(third_data_out)
   // );
 
   // // Stage 4:
-  // logic fourth_fir_valid_out;
-  // logic signed [15:0] fourth_fir_out;
+  // logic fourth_valid_out;
+  // logic signed [7:0] fourth_data_out;
 
-  // fir_module fourth_fir(
+  // fir_and_decimate_8bits stage_four(
   //   .clk(clk_m),
   //   .rst(sys_rst),
-  //   .enable(third_stage_valid_out),
-  //   .data_in(third_stage_out),
-  //   .valid_out(fourth_fir_valid_out),
-  //   .out(fourth_fir_out)
+  //   .single_valid_in(third_valid_out), // single cycle 48 KHz
+  //   .data_in(third_data_out),
+  //   .fad_valid_out(fourth_valid_out), // single cycle 12 KHz
+  //   .fad_data_out(fourth_data_out)
   // );
-
-  // logic fourth_dec_in_valid;
-  // assign fourth_dec_in_valid = (fourth_fir_valid_out && third_stage_valid_out /* 48KHZ */);
-
-  // logic fourth_stage_valid_out;
-  // // logic signed [15:0] fourth_stage_out;
-  // logic signed [15:0] lowpassed_out;
-
-  // decimate fourth_decimate(
-  //   .clk(clk_m),
-  //   .rst(sys_rst),
-  //   .valid_in(fourth_dec_in_valid),
-  //   .data_in(fourth_fir_out),
-  //   .valid_out(fourth_stage_valid_out), // should follows frequency of 12KHZ
-  //   .data_out(lowpassed_out) // should expect 12KHZ at 16 bit depths
-  // );
+  // decimate #(.WIDTH(8))
+  //   fourth_decimate(
+  //     .clk(clk_m),
+  //     .rst(sys_rst),
+  //     .valid_in(third_valid_out),
+  //     .data_in(third_data_out),
+  //     .valid_out(fourth_valid_out), 
+  //     .data_out(fourth_data_out)
+  //   );
   // 4 stages FIR filter complete
-
-
-
-
-
 
   // logic [7:0] single_audio; //recorder non-echo output
   // logic [7:0] echo_audio; //recorder echo output
@@ -225,7 +170,7 @@ module top_level(
   // logic [7:0] audio_data_sel;
 
   // always_comb begin
-  //   if (sw[0])begin
+  //   if (sw[0])beging
   //     // audio_data_sel = tone_750; //signed
   //   end else if (sw[1])begin
   //     // audio_data_sel = tone_440; //signed
@@ -240,13 +185,17 @@ module top_level(
   //   end
   // end
 
+  logic signed [7:0] vol_in;
+  assign vol_in = first_data_out;
 
-  // logic signed [7:0] vol_out; //can be signed or not signed...doesn't really matter
-  logic signed [15:0] vol_out;
+  logic data_ready;
+  assign data_ready = first_valid_out;
+  logic signed [7:0] vol_out; //can be signed or not signed...doesn't really matter
+  // logic signed [15:0] vol_out;
   // all this does is convey the output of vol_out to the input of the pdm
   // since it isn't used directly with any sort of math operation its signedness
   // is not as important.
-  volume_control vc (.vol_in(sw[15:13]),.signal_in(/*lowpassed_out*/ first_stage_out), .signal_out(vol_out));
+  volume_control vc (.vol_in(sw[15:13]),.signal_in(vol_in), .signal_out(vol_out));
 
 
   //PDM:
@@ -257,6 +206,7 @@ module top_level(
   pdm my_pdm(
     .clk_in(clk_m),
     .rst_in(sys_rst),
+    .data_ready(1),
     .level_in(vol_out),
     .tick_in(pdm_signal_valid),
     .pdm_out(pdm_out_signal)
@@ -280,8 +230,8 @@ endmodule // top_level
 //Volume Control
 module volume_control (
   input wire [2:0] vol_in,
-  input wire signed [15:0] signal_in,
-  output logic signed [15:0] signal_out);
+  input wire signed [7:0] signal_in,
+  output logic signed [7:0] signal_out);
     logic [2:0] shift;
     assign shift = 3'd7 - vol_in;
     assign signal_out = signal_in>>>shift;

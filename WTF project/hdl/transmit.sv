@@ -2,7 +2,17 @@
 `default_nettype none // prevents system from inferring an undeclared logic (good practice)
 
 // assumming that the information comes in at 12khz at 16 bits depth
-// module transmit #(parameter BIT_DEPTH = 16)
+// module transmit #(
+//     parameter BIT_DEPTH = /*16*/ 8,
+//     parameter SYNC_LO = 400,
+//     parameter SYNC_HI = 600,
+//     parameter SYNC_PERIOD = SYNC_LO + SYNC_HI,
+//     parameter SEND_LO = 400,
+//     parameter SEND_ZERO = 200,
+//     parameter SEND_ONE = 400,
+//     parameter SEND_ZERO_PERIOD = SEND_LO + SEND_ZERO,
+//     parameter SEND_ONE_PERIOD = SEND_LO + SEND_ONE
+// )
 // (
 //     input wire clk_in, // 98.3 MHZ ~ 10ns
 //     input wire rst_in,
@@ -16,25 +26,15 @@
 //     localparam SYNC = 1;
 //     localparam SEND = 2;
 
-//     localparam SYNC_LO = 400;
-//     localparam SYNC_HI = 600;
-//     localparam SYNC_PERIOD = SYNC_LO + SYNC_HI;
-
-//     localparam SEND_LO = 200;
-//     localparam SEND_ZERO = 200;
-//     localparam SEND_ONE = 600;
-//     localparam SEND_ZERO_PERIOD = SEND_LO + SEND_ZERO;
-//     localparam SEND_ONE_PERIOD = SEND_LO + SEND_ONE;
-
 //     logic [1:0] state = IDLE;
 //     logic [BIT_DEPTH-1:0] audio_buffer = 0;
 //     logic [$clog2(SYNC_PERIOD)-1:0] period = 0;
-//     logic [$clogs(BIT_DEPTH)] sent_bits = 0;
+//     logic [$clog2(BIT_DEPTH)-1:0] sent_bits = 0;
 
 //     always_ff @(posedge clk_in) begin
 //         if (rst_in) begin
 //             state <= IDLE;
-//             audio_buffer = 0;
+//             audio_buffer <= 0;
 //             period <= 0;
 //             sent_bits <= 0;
 //             valid_out <= 0;
