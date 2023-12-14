@@ -148,6 +148,9 @@ module top_level(
   logic fourth_valid_out;
   logic signed [15:0] fourth_data_out;
 
+  logic block_valid_out;
+  logic [15:0][7:0] block;
+
   fir_and_decimate_new stage_four(
     .clk(clk_m),
     .rst(sys_rst),
@@ -158,9 +161,10 @@ module top_level(
     .fad_data_out(fourth_data_out)
   );
 
+
+
+
   
-  logic block_valid_out
-  logic [15:0][7:0] block;
   /* BLOCK CREATION */          // takes 16 cycles of 12 Khz
   create_block blocking_module(
     .clk_in(clk_m),
@@ -302,9 +306,9 @@ module top_level(
         end
         BREAK: begin
           ready_to_hear <= 1'b0;
-          
+
           // 12 KHz single cycle valid
-          if(fourth_valid_out == 1'b1) begin
+          if(fourth_valid_out == 1'b1 && byte_counts < BREAK_BOUND - 1) begin
             byte_counts <= byte_counts + 1;
             
             // Grab the chunk of byte to transmit
@@ -317,10 +321,7 @@ module top_level(
             break_state <= BREAK_IDLE;
           end
         end
-
-      
       endcase
-    
     end
   end
 
@@ -339,17 +340,12 @@ module top_level(
 
 
   
-
-
-
-
-
   logic signed [7:0] vol_in;
   // assign vol_in = fourth_data_out;
 
   logic data_ready;
   // assign data_ready = fourth_valid_out;
-  assign data_ready = ready_to_hear
+  assign data_ready = ready_to_hear;
   logic signed [7:0] vol_out; //can be signed or not signed...doesn't really matter
   // logic signed [15:0] vol_out;
   // all this does is convey the output of vol_out to the input of the pdm

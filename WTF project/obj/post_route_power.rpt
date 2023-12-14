@@ -1,7 +1,7 @@
 Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2023 Advanced Micro Devices, Inc. All Rights Reserved.
 -------------------------------------------------------------------------------------------------------------------------------------------------
 | Tool Version     : Vivado v.2023.1 (lin64) Build 3865809 Sun May  7 15:04:56 MDT 2023
-| Date             : Wed Dec 13 19:45:36 2023
+| Date             : Thu Dec 14 01:52:33 2023
 | Host             : worker running 64-bit Ubuntu 20.04.6 LTS
 | Command          : report_power -file obj/post_route_power.rpt
 | Design           : top_level
@@ -30,10 +30,10 @@ Table of Contents
 ----------
 
 +--------------------------+--------------+
-| Total On-Chip Power (W)  | 0.237        |
+| Total On-Chip Power (W)  | 0.239        |
 | Design Power Budget (W)  | Unspecified* |
 | Power Budget Margin (W)  | NA           |
-| Dynamic (W)              | 0.165        |
+| Dynamic (W)              | 0.167        |
 | Device Static (W)        | 0.072        |
 | Effective TJA (C/W)      | 4.9          |
 | Max Ambient (C)          | 83.8         |
@@ -52,19 +52,19 @@ Table of Contents
 +----------------+-----------+----------+-----------+-----------------+
 | On-Chip        | Power (W) | Used     | Available | Utilization (%) |
 +----------------+-----------+----------+-----------+-----------------+
-| Clocks         |     0.004 |        5 |       --- |             --- |
-| Slice Logic    |     0.005 |     2729 |       --- |             --- |
-|   LUT as Logic |     0.005 |      703 |     32600 |            2.16 |
-|   F7/F8 Muxes  |    <0.001 |      150 |     32600 |            0.46 |
-|   Register     |    <0.001 |     1725 |     65200 |            2.65 |
-|   CARRY4       |    <0.001 |       10 |      8150 |            0.12 |
-|   Others       |     0.000 |       44 |       --- |             --- |
-| Signals        |     0.006 |     2383 |       --- |             --- |
+| Clocks         |     0.006 |        5 |       --- |             --- |
+| Slice Logic    |     0.005 |     4505 |       --- |             --- |
+|   LUT as Logic |     0.005 |     1068 |     32600 |            3.28 |
+|   F7/F8 Muxes  |    <0.001 |      157 |     32600 |            0.48 |
+|   Register     |    <0.001 |     2887 |     65200 |            4.43 |
+|   CARRY4       |    <0.001 |        6 |      8150 |            0.07 |
+|   Others       |     0.000 |       70 |       --- |             --- |
+| Signals        |     0.007 |     3620 |       --- |             --- |
 | MMCM           |     0.132 |        1 |         5 |           20.00 |
 | DSPs           |     0.004 |        4 |       120 |            3.33 |
 | I/O            |     0.013 |       52 |       210 |           24.76 |
 | Static Power   |     0.072 |          |           |                 |
-| Total          |     0.237 |          |           |                 |
+| Total          |     0.239 |          |           |                 |
 +----------------+-----------+----------+-----------+-----------------+
 
 
@@ -74,7 +74,7 @@ Table of Contents
 +-----------+-------------+-----------+-------------+------------+-------------+-------------+------------+
 | Source    | Voltage (V) | Total (A) | Dynamic (A) | Static (A) | Powerup (A) | Budget (A)  | Margin (A) |
 +-----------+-------------+-----------+-------------+------------+-------------+-------------+------------+
-| Vccint    |       1.000 |     0.030 |       0.020 |      0.010 |       NA    | Unspecified | NA         |
+| Vccint    |       1.000 |     0.032 |       0.022 |      0.010 |       NA    | Unspecified | NA         |
 | Vccaux    |       1.800 |     0.086 |       0.074 |      0.013 |       NA    | Unspecified | NA         |
 | Vcco33    |       3.300 |     0.005 |       0.004 |      0.001 |       NA    | Unspecified | NA         |
 | Vcco25    |       2.500 |     0.000 |       0.000 |      0.000 |       NA    | Unspecified | NA         |
@@ -140,19 +140,22 @@ Table of Contents
 3.1 By Hierarchy
 ----------------
 
-+---------------+-----------+
-| Name          | Power (W) |
-+---------------+-----------+
-| top_level     |     0.165 |
-|   macw        |     0.132 |
-|   stage_four  |     0.005 |
-|     fir       |     0.005 |
-|   stage_one   |     0.003 |
-|     fir       |     0.003 |
-|   stage_three |     0.005 |
-|     fir       |     0.005 |
-|   stage_two   |     0.005 |
-|     fir       |     0.005 |
-+---------------+-----------+
++------------------------+-----------+
+| Name                   | Power (W) |
++------------------------+-----------+
+| top_level              |     0.167 |
+|   decipher_module      |     0.004 |
+|     add_round_key_inst |     0.002 |
+|     key_expansion_inst |     0.001 |
+|   macw                 |     0.132 |
+|   stage_four           |     0.005 |
+|     fir                |     0.004 |
+|   stage_one            |     0.002 |
+|     fir                |     0.002 |
+|   stage_three          |     0.005 |
+|     fir                |     0.005 |
+|   stage_two            |     0.005 |
+|     fir                |     0.004 |
++------------------------+-----------+
 
 
