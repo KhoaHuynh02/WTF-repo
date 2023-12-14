@@ -32,12 +32,12 @@ module top_level(
   //we do the latter in this lab.
 
 
-  // logic record; //signal used to trigger recording
-  // //definitely want this debounced:
-  // debouncer rec_deb(  .clk_in(clk_m),
-  //                     .rst_in(sys_rst),
-  //                     .dirty_in(btn[1]),
-  //                     .clean_out(record));
+  logic transmit_btn; //signal used to trigger recording
+  //definitely want this debounced:
+  debouncer rec_deb(  .clk_in(clk_m),
+                      .rst_in(sys_rst),
+                      .dirty_in(btn[1]),
+                      .clean_out(transmit_btn));
 
   //logic for controlling PDM associated modules:
   // logic [8:0] m_clock_counter; //used for counting for mic clock generation
@@ -57,9 +57,6 @@ module top_level(
   
   logic pdm_signal_valid; //single-cycle signal at 3.072 MHz indicating pdm steps
   assign pdm_signal_valid = mic_clk && ~old_mic_clk; // a clock at 3.072 MHz
-  
-  logic transmit_btn;
-  assign transmit_btn = btn[1];
 
   logic [5:0] m_clock_counter; //used for counting for mic clock generation
   //generate clock signal for microphone
@@ -115,7 +112,6 @@ module top_level(
      .fad_valid_out(first_valid_out), // single cycle 768 KHz
      .fad_data_out(first_data_out)
   );
-  
 
   // Stage 2:
   logic second_valid_out;
@@ -148,8 +144,8 @@ module top_level(
   logic fourth_valid_out;
   logic signed [15:0] fourth_data_out;
  
-  logic block_valid_out;
-  logic signed [15:0][7:0] block;
+  logic encode_block_valid;
+  logic signed [15:0][7:0] encode_block;
 
   fir_and_decimate_new stage_four(
     .clk(clk_m),
@@ -162,100 +158,63 @@ module top_level(
   );
 
 
+  /* BLOCK CREATION */          // takes 16 cycles of 12 Khz
+  create_block encode_block_m1(
+    .clk_in(clk_m),
+    .rst_in(sys_rst),
+    .add_new(fourth_valid_out),
+    .block_in_8(fourth_data_out[15:8]),
+    .result_out(encode_block),
+    .valid_out(encode_block_valid)
+  );
 
-
+  localparam key = 128'h2b28ab097eaef7cf15d2154f16a6883c;
   
-  // /* BLOCK CREATION */          // takes 16 cycles of 12 Khz
-  // create_block blocking_module(
-  //   .clk_in(clk_m),
-  //   .rst_in(sys_rst),
-  //   .start(fourth_valid_out),
-  //   .block_in_8(fourth_data_out[15:8]),
-  //   .result_out(block),
-  //   .valid_out(block_valid_out)
-  // );
-  // localparam key = 128'h2b28ab097eaef7cf15d2154f16a6883c;
-  
-  // /* ENCODE */                  // should be fast
-  // logic encode_valid_out;
-  // logic [15:0][7:0] encoded_block;
-  // cipher cipher_module(
-  //   .clk_in(clk_m),
-  //   .rst_in(sys_rst),
-  //   .start(block_valid_out),
-  //   .block_in(block),
-  //   .key_in(key),
-  //   .result_out(encoded_block),
-  //   .valid_out(encode_valid_out)
-  // );
+  /* ENCODE */                  // should be fast
+  logic encode_valid_out;
+  logic signed [15:0][7:0] ciphered_block;
+  cipher cipher_module(
+    .clk_in(clk_m),
+    .rst_in(sys_rst),
+    .start(encode_block_valid),
+    .block_in(encode_block),
+    .key_in(key),
+    .result_out(ciphered_block),
+    .valid_out(encode_valid_out)
+  );
 
-  
+  logic signed [7:0] selected_eight;             // The selected byte from the encoded block
+  logic ready_to_send;
 
-  // localparam TRANSMIT_IDLE = 0;
-  // localparam TRANSMIT = 1;
-  // localparam TRANSMIT_BOUND = 16;
-  // logic transmit_state;
-  // logic [$clog2(16):0] byte_counts;
-  // always_ff @(posedge clk_m) begin
-  //   if(sys_rst) begin
-  //     transmit_state <= TRANSMIT_IDLE;
-  //     byte_counts <= 0;
-  //   end else begin
-  //     case (transmit_state) 
-  //       TRANSMIT_IDLE: begin
-  //         if(encode_valid_out == 1'b1) begin
-  //           transmit_state <= TRANSMIT;
-  //           byte_counts <= 0;
-  //         end
-  //       end
-  //       TRANSMIT: begin
-  //         ready_to_transmit <= 1'b0;
-          
-  //         // 12 KHz single cycle valid
-  //         if(fourth_valid_out == 1'b1) begin
-  //           byte_counts <= byte_counts + 1;
-            
-  //           // Grab the chunk of byte to transmit
-  //           selected_eight <= encoded_block[byte_counts];
+  destroy_block encode_stream_m1(
+    .clk_in(clk_m),
+    .rst_in(sys_rst),
+    .start(encode_valid_out),
+    .request(fourth_valid_out),
+    .block_in(ciphered_block),
+    .result_out(selected_eight),
+    .valid_out(ready_to_send)
+  );
 
-  //           // let the transmit module know that it should transmit the selected_eight
-  //           ready_to_transmit <= 1'b1;
-  //         end
-  //         if(byte_counts == TRANSMIT_BOUND - 1) begin
-  //           transmit_state <= TRANSMIT_IDLE;
-  //         end
-  //       end
-
-      
-  //     endcase
-    
-  //   end
-  // end
-
-  
-
-
-  logic signed [7:0] selected_eight;             // The selectd byte from the encoded block
-  logic ready_to_transmit;                      // Single cycle valid (12KHz)
-
-  assign selected_eight = fourth_data_out[15:8];
+  // TRANSMIT: PMODA[3]
+  // RECEIVE: PMODB[3]
 
   logic transmit_out;
   logic transmit_busy;
   tx transmit_module(
     .clk_in(clk_m),                               // Clock in (98.3MHz)
     .rst_in(sys_rst),                           
-    .valid_in(fourth_valid_out && transmit_btn), // Only transmit if button held down
+    .valid_in(ready_to_send && transmit_btn), // Only transmit if button held down
     .audio_in(selected_eight),
     .out(transmit_out),
     .busy(transmit_busy)
   );
 
-  assign pmoda[3] = transmit_out;
+  assign pmodb[2] = transmit_out;
   
   logic receive_in;
   logic receive_in_clean;
-  assign receive_in = pmodb[3];
+  assign receive_in = pmoda[2];
 
   synchronizer s1
         ( .clk_in(clk_m),
@@ -278,76 +237,45 @@ module top_level(
     .state_out(receive_state)       // Current state out (helpful for debugging).
   );
 
+  logic decode_block_valid;
+  logic signed [15:0][7:0] decode_block;
 
   /* BLOCK CREATION */ 
+  create_block decode_block_m1(
+    .clk_in(clk_m),
+    .rst_in(sys_rst),
+    .add_new(received_valid),
+    .block_in_8(received_audio),
+    .result_out(decode_block),
+    .valid_out(decode_block_valid)
+  );
 
+  logic signed [15:0][7:0] deciphered_block;
+  logic decode_valid_out;
+  /* DECIPHER */
+  decipher decipher_module(
+    .clk_in(clk_m),
+    .rst_in(sys_rst),
+    .start(decode_block_valid),
+    .block_in(decode_block),
+    .key_in(key),
+    .deciphered_block(deciphered_block),
+    .decipher_complete(decode_valid_out)
+  );
 
-  // logic signed [15:0][7:0] deciphered_block;
-  // logic decipher_valid;
-  // /* DECIPER */
-  // decipher decipher_module(
-  //   .clk_in(clk_m),
-  //   .rst_in(sys_rst),
-  //   .start(encode_valid_out),
-  //   .block_in(encoded_block),
-  //   .key_in(key),
-  //   .result_out(deciphered_block),
-  //   .valid_out(decipher_valid)
-  // );
+  logic signed [7:0] decoded_audio;             // The selected byte from the decoded block
+  logic ready_to_hear;
 
-  // logic signed [7:0] deciphered_audio;
-  // logic ready_to_hear;
-  // localparam BREAK_IDLE = 0;
-  // localparam BREAK = 1;
-  // localparam BREAK_BOUND = 16;
-  // logic break_state;
-  // logic [$clog2(16):0] byte_counts;
-  // always_ff @(posedge clk_m) begin
-  //   if(sys_rst) begin
-  //     break_state <= BREAK_IDLE;
-  //     byte_counts <= 0;
-  //   end else begin
-  //     case (break_state) 
-  //       BREAK_IDLE: begin
-  //         if(decipher_valid == 1'b1) begin
-  //           break_state <= BREAK;
-  //           byte_counts <= 0;
-  //         end
-  //       end
-  //       BREAK: begin
-  //         ready_to_hear <= 1'b0;
+  destroy_block decode_stream_m1(
+    .clk_in(clk_m),
+    .rst_in(sys_rst),
+    .start(decode_valid_out),
+    .request(fourth_valid_out),
+    .block_in(deciphered_block),
+    .result_out(decoded_audio),
+    .valid_out(ready_to_hear)
+  );
 
-  //         // 12 KHz single cycle valid
-  //         if(fourth_valid_out == 1'b1 && byte_counts < BREAK_BOUND - 1) begin
-  //           byte_counts <= byte_counts + 1;
-            
-  //           // Grab the chunk of byte to transmit
-  //           deciphered_audio <= deciphered_block[byte_counts];
-
-  //           // let the transmit module know that it should transmit the selected_eight
-  //           ready_to_hear <= 1'b1;
-  //         end
-  //         if(byte_counts == BREAK_BOUND - 1) begin
-  //           break_state <= BREAK_IDLE;
-  //         end
-  //       end
-  //     endcase
-  //   end
-  // end
-
-  // logic signed [15:0][7:0] deciphered_buffer;
-  // logic signed [7:0] deciphered_audio;
-
-  // logic [2:0] current_block = 3'd0;
-  // always_ff @(posedge clk_m) begin
-  //   if (fourth_valid_out) begin
-  //     if (current_block == 3'd7) begin
-  //       deciphered_buffer <= deciphered_block;
-  //     end
-  //     deciphered_audio <= deciphered_buffer[7-current_block];
-  //     current_block <= current_block + 1;
-  //   end
-  // end
 
   always_comb begin
     if (sw[4])begin
@@ -356,8 +284,8 @@ module top_level(
       vol_in = tone_750;         //signed
     end else if (sw[6])begin
       // vol_in = deciphered_audio; //signed
-      if (received_valid) begin
-        vol_in = received_audio;
+      if (ready_to_hear) begin
+        vol_in = decoded_audio;
       end
     end else begin
       vol_in = mic_data;
