@@ -27,20 +27,20 @@ module destroy_block(
                 IDLE: begin
                     if (start) begin
                         state <= STREAM;
-                        current_block <= 16;
+                        current_block <= 0;
                         buffer <= block_in;
                     end
                 end
 
                 STREAM: begin
-                    if (current_block == 0) begin
+                    if (current_block == 16) begin
                         state <= IDLE;
                         result_out <= 0;
                     end else begin
                         if (fourth_valid_out) begin
                             valid_out <= 1;
-                            result_out <= buffer[current_block-1];
-                            current_block <= current_block - 1;
+                            result_out <= buffer[current_block];
+                            current_block <= current_block + 1;
                         end else begin
                             valid_out <= 0;
                         end
