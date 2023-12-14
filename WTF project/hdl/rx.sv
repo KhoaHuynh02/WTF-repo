@@ -7,7 +7,7 @@ module rx #(
     parameter BBD = 400,  // Bit burst duration.
     parameter BSD0 = 200,  // Bit silence duration (for 0).
     parameter BSD1 = 400,  // Bit silence duration (for 1).
-    parameter MARGIN = 100,  // The +/- of your signals.
+    parameter MARGIN = 50,  // The +/- of your signals.
     parameter WIDTH = 8 // The bit depth of the output
 ) ( input wire clk_in,  // Clock in (98.3 MHz).
     input wire rst_in,  // Reset in.
