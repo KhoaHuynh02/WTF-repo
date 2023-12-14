@@ -35,7 +35,7 @@ module destroy_block(
                 STREAM: begin
                     if (current_block == 16) begin
                         state <= IDLE;
-                        result_out <= 0;
+                        valid_out <= 0;
                     end else begin
                         if (request) begin
                             valid_out <= 1;
