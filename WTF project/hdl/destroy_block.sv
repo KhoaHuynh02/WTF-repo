@@ -6,7 +6,7 @@ module destroy_block(
     input wire rst_in,
     input wire start,
     input wire request,
-    input [15:0][7:0] block_in,
+    input wire [15:0][7:0] block_in,
     output logic [7:0] result_out,
     output logic valid_out
 );
@@ -17,8 +17,8 @@ module destroy_block(
 
     logic [4:0] current_block;
     logic [15:0][7:0] buffer;
-    always_ff @(posedge clk_m) begin
-        if (sys_rst) begin
+    always_ff @(posedge clk_in) begin
+        if (rst_in) begin
             current_block <= 0;
             result_out <= 0;
             state <= IDLE;
@@ -37,7 +37,7 @@ module destroy_block(
                         state <= IDLE;
                         result_out <= 0;
                     end else begin
-                        if (fourth_valid_out) begin
+                        if (request) begin
                             valid_out <= 1;
                             result_out <= buffer[current_block];
                             current_block <= current_block + 1;
