@@ -1,19 +1,20 @@
 `timescale 1ns / 1ps
 `default_nettype none // prevents system from inferring an undeclared logic (good practice)
 
+// pass band frequency 0.25 of nyquist and stop band frequency 0.25 of fs
 module fir_and_decimate_new
 #(
-    parameter DATA_WIDTH = 16
-    // pass band frequency 0.25 of nyquist and stop band frequency 0.25 of fs
+    parameter DATA_WIDTH = 16 // data width is 16 to account for overflows
+    
 )
 (
-    input wire clk,
-    input wire rst,
-    input wire single_valid_in,
-    input wire [3:0] right_shift,
-    input wire signed [DATA_WIDTH-1:0] data_in,
-    output logic fad_valid_out,
-    output logic signed [DATA_WIDTH-1:0] fad_data_out
+    input wire clk,                                     // System clock
+    input wire rst,                                     // Reset signal
+    input wire single_valid_in,                         // Single cycle valid in (freqeuncy of incoming signal)
+    input wire [4:0] right_shift,                       // How much to scale down the output of FIR
+    input wire signed [DATA_WIDTH-1:0] data_in,         // Signed data in
+    output logic fad_valid_out,                         // Single cycle indicating output data is ready to consume
+    output logic signed [DATA_WIDTH-1:0] fad_data_out   // Data out
 );
 
     logic fir_valid_out;

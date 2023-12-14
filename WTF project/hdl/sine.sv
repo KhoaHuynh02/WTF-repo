@@ -12,7 +12,7 @@ module sine_generator
   input wire step_in, //trigger a phase step (rate at which you run sine generator)
   output logic signed [7:0] amp_out); //output phase in 2's complement
 
-  parameter PHASE_INCR = 32'b1000_0000_0000_0000_0000_0000_0000_0000>>RIGHTSHIFT; // 1/
+  parameter PHASE_INCR = 32'b1000_0000_0000_0000_0000_0000_0000_0000>>RIGHTSHIFT; // 1/(2^(RIGHT_SHIFT+1))
   logic [31:0] phase;
   logic [7:0] amp;
   // logic [7:0] amp_pre;

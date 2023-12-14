@@ -5,13 +5,13 @@ module fir_module_new#(
     parameter TAPS = 30
 )
 (
-    input wire clk,
-    input wire rst,
-    input wire [3:0] right_shift ,
-    input wire single_valid_in, // Single cycle signal indicating the frequency the input signal comes in
-    input wire signed [15:0] data_in, 
-    output logic valid_out,
-    output logic signed [15:0] data_out
+    input wire clk,                                 // System clock
+    input wire rst,                                 // Reset 
+    input wire [4:0] right_shift ,                  // How much to scale down the ouput of LPF  
+    input wire single_valid_in,                     // Single cycle data is valid
+    input wire signed [15:0] data_in,               // Data coming in
+    output logic valid_out,                         // Data is ready for consumption
+    output logic signed [15:0] data_out             // LPF data
 );
     
     /*
@@ -56,6 +56,7 @@ module fir_module_new#(
 
     logic [2:0] state = IDLE;
 
+    // Buffer to store the calculated add and multiply
     logic signed [40:0] accumulator;
     logic signed [15:0] delay_buffer [TAPS-1:0];
 
@@ -63,13 +64,6 @@ module fir_module_new#(
     logic signed [15:0] coef_vals;
     logic signed [15:0] delay_buff_val;
 
-    // logic [6:0] total_shift;
-
-    // assign total_shift = 10 + right_shift;
-    
-    // localparam ZEROES = 10000;
-
-    // logic [20:0] zero_insert = 0;
     always_ff @(posedge clk) begin
         if(rst) begin
             valid_counter <= 0;
@@ -80,15 +74,15 @@ module fir_module_new#(
             end
         end else begin 
             if(state == IDLE) begin
-                // zero_insert <= zero_insert + 1;
                 if(single_valid_in) begin
                     state <= SUM_ADD;
                     accumulator <= 0;
                     valid_counter <= 0;
-
-                    // shift new data in
+                    
+                    // Shift new data in
                     delay_buffer[0] <= data_in; 
                     for(int k = 1; k < TAPS; k = k + 1) begin
+                        // Shift the delay buffers back
                         delay_buffer[k] <= delay_buffer[k-1];
                     end
                 end 
@@ -102,15 +96,13 @@ module fir_module_new#(
                         valid_out <= 1'b1;
                         valid_counter <= 0;
                     end
-                    // coef_vals <= $signed(coef[valid_counter*16 +: 16]);
-                    // delay_buff_val <= delay_buffer[valid_counter];
                     accumulator <= $signed(accumulator) + $signed(delay_buffer[valid_counter]) * $signed(coef[valid_counter*16 +: 16]) ;
-                    // accumulator <= accumulator + delay_buffer[valid_counter] * $signed(coef[valid_counter]);
                 end
             end
             else if(state == DONE) begin
                 state <= IDLE;
                 valid_out <= 1'b0;
+                // Scale down the ouput of the FIR
                 data_out <= accumulator >>> right_shift;
             end
         end 

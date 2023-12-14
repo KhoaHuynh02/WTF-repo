@@ -21,7 +21,7 @@ module fir_tb();
         old_clk <= curr_clk;
     end
 
-    logic signed [WIDTH-1:0] data_in;
+    logic signed [15:0] data_in;
     // sine.sv
     logic signed [8:0] amp_out;
 
@@ -36,12 +36,14 @@ module fir_tb();
 
     logic signed [7:0] slow_sine;
     sine_generator #(
-      .RIGHTSHIFT(14)
+        // RIGHT_SHIFT(6) => 24 khz
+        //// RIGHT_SHIFT(7) => 12 khz
+      .RIGHTSHIFT(10) // Slow sine at 12 Khz because 3 MHz / (2^(RIGHT_SHIFT+1))
     )
     sine_gen_low_freq(
         .clk_in(clk_100mhz),
         .rst_in(rst_in),
-        .step_in(clk_100mhz),
+        .step_in(clk_3mhz),
         .amp_out(slow_sine)
     );
 
@@ -56,22 +58,22 @@ module fir_tb();
     //     .amp_out(ok_slow_sine)
     // );
 
-    assign amp_out = slow_sine + fast_sine;
+    // assign amp_out = slow_sine;
 
-    logic signed [7:0] level_in;
-    assign level_in = amp_out[8:1];
+    // logic signed [7:0] level_in;
+    // assign level_in = amp_out[8:1];
 
     logic pdm_out;
     pdm pdm_module
             ( .clk_in(clk_100mhz),
                 .rst_in(rst_in),
                 .data_ready(1'b1),
-                .level_in(level_in),
+                .level_in(slow_sine),
                 .tick_in(clk_3mhz),
                 .pdm_out(pdm_out)
             );
 
-    assign data_in = { {4{pdm_out}}, 4'b0};
+    assign data_in = pdm_out ? {8'b1,8'h0} : 0; 
     
     // logic first_fad_valid_out;
     // logic signed [15:0] first_fad_data_out;
@@ -140,88 +142,107 @@ module fir_tb();
 
 
 
-    logic signed [7:0] first_stage_8bits_data_in;
-    assign first_stage_8bits_data_in = data_in;
-    logic first_stage_8bits_valid_out;
-    logic signed [7:0] first_stage_8bits_data_out;
-
-    fir_and_decimate_8bits uut
+    logic signed [15:0] first_stage_data_in;
+    assign first_stage_data_in = data_in;
+    logic first_stage_valid_out;
+    logic signed [15:0] first_stage_data_out;
+    logic [3:0] right_shift;
+    assign right_shift = 4'd15;
+    fir_and_decimate_new uut
     (
         .clk(clk_100mhz),
         .rst(rst_in),
+        .right_shift(right_shift),
         .single_valid_in(clk_3mhz),
-        .data_in(first_stage_8bits_data_in),
-        .fad_valid_out(first_stage_8bits_valid_out),
-        .fad_data_out(first_stage_8bits_data_out)
+        .data_in(first_stage_data_in),
+        .fad_valid_out(first_stage_valid_out),
+        .fad_data_out(first_stage_data_out)
     );
-    logic signed [7:0] scaled_8bits;
-    assign scaled_8bits = first_stage_8bits_data_out;
+    // logic signed [7:0] scaled_8bits;
+    // assign scaled_8bits = first_stage_8bits_data_out;
 
-    logic second_stage_8bits_valid_out;
-    logic signed [7:0] second_stage_8bits_data_out;
+    // logic second_stage_8bits_valid_out;
+    // logic signed [7:0] second_stage_8bits_data_out;
+    logic signed [15:0] second_stage_data_in;
+    assign second_stage_data_in = first_stage_data_out;
 
-    fir_and_decimate_8bits second_stage_fir_decimate
+    logic second_stage_valid_out;
+    logic signed [15:0] second_stage_data_out;
+
+    fir_and_decimate_new stage_two
     (
         .clk(clk_100mhz),
         .rst(rst_in),
-        .single_valid_in(first_stage_8bits_valid_out),
-        .data_in(first_stage_8bits_data_out),
-        .fad_valid_out(second_stage_8bits_valid_out),
-        .fad_data_out(second_stage_8bits_data_out)
+        .right_shift(right_shift),
+        .single_valid_in(first_stage_valid_out),
+        .data_in(second_stage_data_in),
+        .fad_valid_out(second_stage_valid_out),
+        .fad_data_out(second_stage_data_out)
     );
 
-    logic third_stage_8bits_valid_out;
-    logic signed [7:0] third_stage_8bits_data_out;
+    logic signed [15:0] third_stage_data_in;
+    assign third_stage_data_in = second_stage_data_out;
 
-    // fir_and_decimate_8bits third_stage_fir_decimate
-    // (
-    //     .clk(clk_100mhz),
-    //     .rst(rst_in),
-    //     .single_valid_in(second_stage_8bits_valid_out),
-    //     .data_in(second_stage_8bits_data_out),
-    //     .fad_valid_out(third_stage_8bits_valid_out),
-    //     .fad_data_out(third_stage_8bits_data_out)
+    logic third_stage_valid_out;
+    logic signed [15:0] third_stage_data_out;
+
+    fir_and_decimate_new stage_three
+    (
+        .clk(clk_100mhz),
+        .rst(rst_in),
+        .right_shift(right_shift),
+        .single_valid_in(second_stage_valid_out),
+        .data_in(third_stage_data_in),
+        .fad_valid_out(third_stage_valid_out),
+        .fad_data_out(third_stage_data_out)
+    );
+
+    // decimate #()
+    // third_decimate(
+    //   .clk(clk_100mhz),
+    //   .rst(rst_in),
+    //   .valid_in(second_stage_valid_out),
+    //   .data_in(third_stage_data_in),
+    //   .valid_out(third_stage_valid_out), 
+    //   .data_out(third_stage_data_out)
     // );
 
-    decimate #(.WIDTH(8))
-    third_decimate(
-      .clk(clk_100mhz),
-      .rst(rst_in),
-      .valid_in(second_stage_8bits_valid_out),
-      .data_in(second_stage_8bits_data_out),
-      .valid_out(third_stage_8bits_valid_out), 
-      .data_out(third_stage_8bits_data_out)
-    );
+    logic signed [15:0] fourth_stage_data_in;
+    assign fourth_stage_data_in = third_stage_data_out;
 
+    logic fourth_stage_valid_out;
+    logic signed [15:0] fourth_stage_data_out;
 
-    logic fourth_stage_8bits_valid_out;
-    logic signed [7:0] fourth_stage_8bits_data_out;
-
-    fir_and_decimate_8bits fourth_stage_fir_decimate
+    fir_and_decimate_new stage_four
     (
         .clk(clk_100mhz),
         .rst(rst_in),
-        .single_valid_in(third_stage_8bits_valid_out),
-        .data_in(third_stage_8bits_data_out),
-        .fad_valid_out(fourth_stage_8bits_valid_out),
-        .fad_data_out(fourth_stage_8bits_data_out)
+        .right_shift(right_shift),
+        .single_valid_in(third_stage_valid_out),
+        .data_in(fourth_stage_data_in),
+        .fad_valid_out(fourth_stage_valid_out),
+        .fad_data_out(fourth_stage_data_out)
     );
-    // decimate #(.WIDTH(8))
+
+    // decimate #()
     // fourth_decimate(
     //   .clk(clk_100mhz),
     //   .rst(rst_in),
-    //   .valid_in(third_stage_8bits_valid_out),
-    //   .data_in(third_stage_8bits_data_out),
-    //   .valid_out(fourth_stage_8bits_valid_out), 
-    //   .data_out(fourth_stage_8bits_data_out)
+    //   .valid_in(third_stage_valid_out),
+    //   .data_in(fourth_stage_data_in),
+    //   .valid_out(fourth_stage_valid_out), 
+    //   .data_out(fourth_stage_data_out)
     // );
 
+
+    logic signed [7:0] pdm_in;
+    assign pdm_in = fourth_stage_data_out;
     logic final_pdm_out;
     pdm pdm_module_final
             (   .clk_in(clk_100mhz),
                 .rst_in(rst_in),
-                .data_ready(fourth_stage_8bits_valid_out),
-                .level_in(fourth_stage_8bits_data_out),
+                .data_ready(fourth_stage_valid_out),
+                .level_in(pdm_in),
                 .tick_in(clk_3mhz),
                 .pdm_out(final_pdm_out)
             );
