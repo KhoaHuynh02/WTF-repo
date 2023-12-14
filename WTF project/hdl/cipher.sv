@@ -143,29 +143,24 @@ module cipher(
                         current_key <= key_in;
 
                         result_out <= 128'b0;
-                        cipher_round_count <= 1;
 
                         // Start round 1.
+                        cipher_round_count <= 1;
                         state <= ROUND;
                     end
                 end
                 // Cipher rounds 1-10.
                 ROUND: begin
                     // Handles round 1-9.
-                    integer i;
-                    for (i = 1; i < 9; i = i + 1) begin
-                        if (cipher_round_count == i) begin
-                            cipher_round_start <= 1;
-                            cipher_round_block_in <= current_block;
-                            cipher_round_key_in <= current_key;
-                            cipher_round_rcon_in <= {8'h01 << (i - 1), 24'h000000};
-                            state <= ROUND_WAIT;
-                        end
-                    end
-                    
+                    if (cipher_round_count < 9) begin
+                        cipher_round_start <= 1;
+                        cipher_round_block_in <= current_block;
+                        cipher_round_key_in <= current_key;
+                        cipher_round_rcon_in <= {8'h01 << (cipher_round_count - 1), 24'h000000};
+                        state <= ROUND_WAIT;
                     // Round 9 (has to be handled specially, as the rcon does
                     // not match the previous pattern).
-                    if (cipher_round_count == 9) begin
+                    end else if (cipher_round_count == 9) begin
                         cipher_round_start <= 1;
                         cipher_round_block_in <= current_block;
                         cipher_round_key_in <= current_key;
@@ -188,15 +183,18 @@ module cipher(
                     // There is no real round 11, but this just gives us time to
                     // let everything propagate, then save the results.
                     end else if (cipher_round_count == 11) begin
-                        // Save the output of `key_expansion` for use
-                        // in `add_round_key`.
+                        // Avoid continuously starting these modules.
+                        sub_bytes_start <= 0;
+                        key_expansion_start <= 0;
+
+                        // Find the final key.
                         if (key_expansion_complete) begin
-                            add_round_key_key_in <= key_expansion_result;
+                            current_key <= key_expansion_result;
                         end
 
-                        // All done, so move to `OUTPUT`.
-                        if (add_round_key_complete) begin
-                            result_out <= add_round_key_result;
+                        // NOTE: The key expansion must finish before this!!!
+                        if (shift_rows_complete) begin
+                            result_out <= shift_rows_result ^ current_key;
                             valid_out <= 1;
                             state <= OUTPUT;
                         end

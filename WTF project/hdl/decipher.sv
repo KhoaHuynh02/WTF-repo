@@ -1,245 +1,226 @@
 `timescale 1ns / 1ps
 `default_nettype none
 
-//
-//
-// - Parameters:
-//   -
-// - Results:
-//   -
 module decipher(
-    input wire clk_in,  // The clock.
-    input wire rst_in,  // Reset.
-    input wire start,  // Indicates a new valid block has been passed in.
-    input wire [127:0] block_in,  // The new block to encrypt.
-    input wire [127:0] key_in,  // The key to use for decipher.
-    output logic [127:0] result_out,  // The block with the shifted rows.
-    output logic valid_out  // Goes high for one cycle to indicate that `result_out` is read.
-);
+    input wire clk_in,
+    input wire rst_in,
+    input wire start,
+    input wire [127:0] block_in,
+    input wire [127:0] key_in,
+    output logic [127:0] deciphered_block,
+    output logic decipher_complete
+);  
+    // - MARK: Key expansion modules and variables.
 
-    // The three possible states of the FSM.
-    //
-    // - WAIT_FOR_START: Resting state; waiting for input.
-    // - SHIFT_ROWS: Actively shifting rows/bytes.
-    // - OUTPUT: Keeps `valid_out` true for one cycle; only
-    //   remains in this state for one cycle.
-    typedef enum {WAIT_FOR_START, KEY_EXPANSION, ROUND, ROUND_WAIT, OUTPUT} decipher_state;
-
-    // The current state of the FSM.
-    decipher_state state = WAIT_FOR_START;
-
-    // The current decipher round.
-    logic [3:0] decipher_round_count = 0;
-
-    // The current block, which may change over time. 
-    logic [127:0] current_block;
-
-    // The key, which will change over time.
-    logic [127:0] current_key;
-
-    // The result is saved here while being computed, then
-    // placed in `result_out` once complete.
-    logic [127:0] saved_output;
-
-    // Key expansion module.
     logic key_expansion_start;
     logic [127:0] key_expansion_key_in;
     logic [31:0] key_expansion_rcon_in;
     logic [127:0] key_expansion_result;
     logic key_expansion_complete;
     key_expansion key_expansion_inst(
-        .clk_in(clk_in),
-        .rst_in(rst_in),
-        .new_key_in(key_expansion_start),
+        .clk_in(clk_in),  // The clock.
+        .rst_in(rst_in),  // Reset.
+        .new_key_in(key_expansion_start),  // Indicates a new valid word has been passed in.
         .key_in(key_expansion_key_in),
-        .rcon_in(key_expansion_rcon_in),  // The Rcon for round 10.
+        .rcon_in(key_expansion_rcon_in),
         .expanded_key_out(key_expansion_result),
         .valid_out(key_expansion_complete)
     );
 
-    // Shift rows module.
-    logic shift_rows_start;
-    logic [127:0] shift_rows_block_in;
-    logic [127:0] shift_rows_result;
-    logic shift_rows_complete;
-    inv_shift_rows inv_shift_rows_inst(
-        .clk_in(clk_in),
-        .rst_in(rst_in),
-        .start(shift_rows_start),  // Indicates a new valid block has been passed in.
-        .block_in(shift_rows_block_in),  // The new block whose rows should be shifted.
-        .result_out(shift_rows_result),  // The block with the shifted rows.
-        .valid_out(shift_rows_complete)  // Goes high for one cycle to indicate that `result_out` is read.
-    );
+    typedef enum {
+        WAIT,
+        GENERATE_KEYS,
+        DECIPHER_INITIAL,
+        ROUNDS,
+        ROUND_WAIT,
+        DECIPHER_FINAL,
+        OUTPUT
+    } generate_all_keys_state;
 
-    // Sub bytes module.
-    logic [127:0] sub_bytes_result;
-    logic sub_bytes_complete;
-    inv_sub_bytes inv_sub_bytes_inst(
-        .clk_in(clk_in),  // The clock.
-        .rst_in(rst_in),  // Reset.
-        .new_block_in(shift_rows_complete),  // Indicates a new valid block has been passed in.
-        .block_in(shift_rows_result),  // The new block whose bytes should be substituted.
-        .inv_subbed_block_out(sub_bytes_result),  // The block with the substituted blocks.
-        .valid_out(sub_bytes_complete)  // Goes high for one cycle to indicate that `subbed_block_out` is complete.
-    );
+    // The state of the FSM.
+    generate_all_keys_state state;
 
-    // Add round key module.
-    logic [127:0] add_round_key_result;
-    logic [127:0] add_round_key_key_in;
-    logic add_round_key_complete;
-    add_round_key add_round_key_inst(
-        .clk_in(clk_in),
-        .rst_in(rst_in),
-        .start(sub_bytes_complete),  // Indicates a new valid block has been passed in.
-        .round_key_in(keys[0]),
-        // .round_key_in(add_round_key_key_in),  // The key.
-        .block_in(sub_bytes_result),  // The new block whose bytes should have the key applied/XORed.
-        .result_out(add_round_key_result),  // The block with the XORed blocks.
-        .valid_out(add_round_key_complete)  // Goes high for one cycle to indicate that `result_out` is ready.
-    );
+    logic [127:0] keys [10:0];
 
-    // Decipher round module.
+    // When used, it is the most recent key generation round that has completed.
+    logic [3:0] key_completed_round;
+
+    // - MARK: Decipher modules and variables.
+
     logic decipher_round_start;
     logic [127:0] decipher_round_block_in;
     logic [127:0] decipher_round_key_in;
-    logic [127:0] decipher_round_block_out;
-    logic [127:0] decipher_round_key_out;
+    logic [127:0] decipher_round_result;
     logic decipher_round_complete;
     decipher_round decipher_round_inst(
         // Controls.
         .clk_in(clk_in),  // The clock.
         .rst_in(rst_in),  // Reset.
-        .start(decipher_round_start),
+        .start(decipher_round_start),  // Indicates a new valid block has been passed in.
 
         // Inputs.
-        .block_in(decipher_round_block_in),  // Indicates a new valid block has been passed in.
-        .key_in(decipher_round_key_in),
+        .block_in(decipher_round_block_in),  // The new block to encrypt.
+        .key_in(decipher_round_key_in),  // The key to use for AES (with key expansion already applied).
 
         // Outputs.
-        .block_out(decipher_round_block_out),  // The block with the substituted blocks.
-        .block_complete(decipher_round_complete)  // Goes high for one cycle to indicate that `subbed_block_out` is complete.
+        .block_out(decipher_round_result),  // The block with the shifted rows.
+        .block_complete(decipher_round_complete)  // Goes high for one cycle to indi
     );
 
-    logic [127:0] keys [10:0];
-    logic [3:0] next_key_index;
+    logic [3:0] decipher_round;
+
+    // The block as it is deciphered.
+    logic [127:0] current_block;
+
+    // - MARK: Decipher final round modules and variables.
+
+    logic final_modified_round_start;
+    logic [127:0] inv_shift_rows_result;
+    logic inv_shift_rows_complete;
+    inv_shift_rows inv_shift_rows_inst(
+        .clk_in(clk_in),
+        .rst_in(rst_in),
+        .start(final_modified_round_start),
+        .block_in(current_block),
+        .result_out(inv_shift_rows_result),
+        .valid_out(inv_shift_rows_complete)
+    );
+
+    logic [127:0] inv_sub_bytes_result;
+    logic inv_sub_bytes_complete;
+    inv_sub_bytes inv_sub_bytes_inst(
+        .clk_in(clk_in),
+        .rst_in(rst_in),
+        .new_block_in(inv_shift_rows_complete),
+        .block_in(inv_shift_rows_result),
+        .inv_subbed_block_out(inv_sub_bytes_result),
+        .valid_out(inv_sub_bytes_complete)
+    );
 
     always_ff @(posedge clk_in) begin
-        // Reset everything.
+        // Reset.
         if (rst_in) begin
-            state <= WAIT_FOR_START;
-            result_out <= 128'b0;
-            valid_out <= 0;
+            key_expansion_start <= 0;
+            decipher_round <= 0;
+
+            state <= WAIT;
         end else begin
             case (state)
-                // Resting state; waiting for input.
-                WAIT_FOR_START: begin
-                    valid_out <= 0;
-                    // New input received; start XORing
+                WAIT: begin
                     if (start) begin
-                        result_out <= 128'b0;
-
+                        // Save the passed in block.
                         current_block <= block_in;
 
                         // Save the first key.
                         keys[0] <= key_in;
-                        next_key_index <= 1;
 
-                        // Get the rest of the keys.
-                        key_expansion_key_in <= key_in;  // Start based off of the first key.
-                        key_expansion_rcon_in <= 32'h01000000;
+                        // Start the key expansion.
+                        key_expansion_key_in <= key_in;
+                        key_expansion_rcon_in <= 31'h01000000;
+                        key_completed_round <= 1;
+
                         key_expansion_start <= 1;
-                        state <= KEY_EXPANSION;
+
+                        state <= GENERATE_KEYS;
                     end
                 end
-                KEY_EXPANSION: begin
-                    // Check if done with all key expansions--if so, carry out the
-                    // first round of the deciphering, then move on to the other rounds.
-                    if (next_key_index == 11) begin
-                        // Initial round.
-                        current_block <= current_block ^ keys[10];
+                GENERATE_KEYS: begin
+                    if (key_expansion_complete) begin
+                        // Save the computed key.
+                        keys[key_completed_round] <= key_expansion_result;
 
-                        // Initiate the rest of the rounds.
-                        decipher_round_count <= 9;
-                        state <= ROUND;
-                    // Previous key expansion finished.
-                    end else if (key_expansion_complete) begin
-                        keys[next_key_index] <= key_expansion_result;
-                        
-                        // Start the next key expansion.
-                        key_expansion_key_in <= key_expansion_result;
-                        next_key_index <= next_key_index + 1;
-                        key_expansion_start <= 1;
+                        if (key_completed_round < 8) begin
+                            // Initialize next round of key generation.
+                            key_expansion_key_in <= key_expansion_result;
+                            key_expansion_rcon_in <= 31'h01000000 << (key_completed_round);
+                            key_expansion_start <= 1;
 
-                        // Determine the rcon for the next key expansion.
+                        // Special cases for rounds 9 and 10, plus finishes
+                        // in round 11.
+                        end else begin
+                            if (key_completed_round == 8) begin
+                                // Initialize next round of key generation.
+                                key_expansion_key_in <= key_expansion_result;
+                                key_expansion_rcon_in <= 31'h1b000000;
+                                key_expansion_start <= 1;
+                            end else if (key_completed_round == 9) begin
+                                // Initialize next round of key generation.
+                                key_expansion_key_in <= key_expansion_result;
+                                key_expansion_rcon_in <= 31'h36000000;
+                                key_expansion_start <= 1;
 
-                        // About to calculate key for rounds 1-8, inclusive.
-                        if (next_key_index < 8) begin
-                            key_expansion_rcon_in <= {8'h01 << next_key_index, 24'h000000};
-                        // About to calculate key for round 9.
-                        end else if (next_key_index == 8) begin
-                            key_expansion_rcon_in <= 32'h1b000000;
-                        // About to calculate key for round 10.
-                        end else begin  // next_key_index == 10;
-                            key_expansion_rcon_in <= 32'h36000000;
+                            // All keys generated, proceed to deciphering.
+                            end else if (key_completed_round == 10) begin
+                                // Start the deciphering.
+                                state <= DECIPHER_INITIAL;
+                            end
                         end
-                    // Currently key expanding (i.e., results are not  yet ready).
+
+                        // Increment rounds.
+                        key_completed_round <= key_completed_round + 1;
                     end else begin
-                        // To avoid continuously starting.
                         key_expansion_start <= 0;
                     end
                 end
-                // decipher rounds 1-10.
-                ROUND: begin
-                    // Handles round 1-9.
-                    integer i;
-                    for (i = 9; i > 0; i = i - 1) begin
-                        if (decipher_round_count == i) begin
-                            decipher_round_start <= 1;
-                            decipher_round_block_in <= current_block;
-                            decipher_round_key_in <= keys[i];
-                            state <= ROUND_WAIT;
-                        end
-                    end
+                DECIPHER_INITIAL: begin
+                    // Initial add round key.
+                    current_block <= current_block ^ keys[10];
                     
-                    if (decipher_round_count == 0) begin
-                        // Start the chain reaction for round 10, which uses `sub_bytes`,
-                        // `shift_row`, and and `add_round_key` (with key expansion).
-                        shift_rows_start <= 1;
-                        shift_rows_block_in <= current_block;
-
-                        // Move to `OUTPUT`.
-                        if (add_round_key_complete) begin
-                            // Output the result.
-                            result_out <= add_round_key_result;
-                            valid_out <= 1;
-
-                            state <= OUTPUT;
-                        end
-                    end
+                    // Carry out the nine rounds of deciphering.
+                    decipher_round <= 9;
+                    state <= ROUNDS;
                 end
+                ROUNDS: begin
+                    // Start the next round.
+                    decipher_round_block_in <= current_block;
+                    decipher_round_key_in <= keys[decipher_round];
+                    decipher_round_start <= 1;
+
+                    // Wait for results before moving to the next round.
+                    decipher_round <= decipher_round - 1;
+                    state <= ROUND_WAIT;
+                end 
                 ROUND_WAIT: begin
-                    // Don't want to continuously be starting.
+                    // To avoid continuously starting.
                     decipher_round_start <= 0;
 
-                    // Once finished with a round, proceed to the next round.
                     if (decipher_round_complete) begin
-                        // Update the block and key.
-                        current_block <= decipher_round_block_out;
-                        current_key <= decipher_round_key_out;
+                        // Update the current block.
+                        current_block <= decipher_round_result;
 
-                        // Move to the next round.
-                        decipher_round_count <= decipher_round_count - 1;
-                        state <= ROUND;
+                        // Check if done with all rounds; move to final steps if so.    
+                        if (decipher_round == 0) begin
+                            // Start the final modified round.
+                            final_modified_round_start <= 1;
+                            state <= DECIPHER_FINAL;
+                        // Continue with the next round if not yet finished.
+                        end else begin
+                            state <= ROUNDS;
+                        end
                     end
                 end
-                // Only stay in `OUTPUT` state for one cycle, then reset.
+                DECIPHER_FINAL: begin
+                    // To avoid continously starting.
+                    final_modified_round_start <= 0;
+
+                    // If finished, apply the final round key, then output
+                    // the result.
+                    if (inv_sub_bytes_complete) begin
+                        // Final application of the round key.
+                        deciphered_block <= inv_sub_bytes_result ^ keys[decipher_round];
+                        decipher_complete <= 1;
+
+                        state <= OUTPUT;
+                    end
+                end
                 OUTPUT: begin
-                    valid_out <= 0;
-                    state <= WAIT_FOR_START;
+                    decipher_complete <= 0;
+                    state <= WAIT;
                 end
             endcase
         end
     end
+
 endmodule
 
 `default_nettype wire
