@@ -48,7 +48,7 @@ To transmit sound, press **BTN[1]** and the FPGA will send it automatically. Sho
 does anyone know copyright laws?
 
 ## Endnote
-a picture of the group that brought you the WTF (plus joe, he's da real homie.)
+a picture of the group that brought you the WTF (plus joe, he's the real homie.)
 
 ![Los Pingüinos Me La Van a Mascar](https://i.kym-cdn.com/entries/icons/facebook/000/047/271/los_penguins.jpg)
 
