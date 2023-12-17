@@ -52,4 +52,6 @@ a picture of the group that brought you the WTF (plus chatgpt)
 
 ![Los Pingüinos Me La Van a Mascar](https://i.kym-cdn.com/entries/icons/facebook/000/047/271/los_penguins.jpg)
 
+"i would never do this project again even if i had to"
+
 -k
