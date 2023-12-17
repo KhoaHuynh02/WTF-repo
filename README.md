@@ -1,5 +1,6 @@
 # WTF: Walkie-Talkie on FPGA
 *by Khoa Huynh, Khang Le, and Keawe Mann*
+
 *6.205 Fall 2023 Final Project*
 
 An AES-encrypted walkie-talkie system that is capable of two-way communications.
