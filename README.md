@@ -28,6 +28,7 @@ Here's a little ASCII drawing to identify which ports to connect to:
 *PMODB on the left, PMODA on the right*
 
 □□□■□□□□□□□□■□□
+
 □□□□□□□□□□□□□□□
 
 
