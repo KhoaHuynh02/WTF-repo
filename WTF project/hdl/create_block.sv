@@ -43,6 +43,7 @@ module create_block(
         if (rst_in) begin
             index <= 0;
             result_out <= 128'b0;
+            state <= ADD_BLOCK_8;
         end else begin
             case (state)
                 ADD_BLOCK_8: begin

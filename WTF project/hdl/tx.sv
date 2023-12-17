@@ -2,8 +2,8 @@
 `default_nettype none
 
 module tx #( 
-    parameter SBD = 800,  // Sync burst duration.
-    parameter SSD = 800,  // Sync silence duration.
+    parameter SBD = 700,  // Sync burst duration.
+    parameter SSD = 700,  // Sync silence duration.
     parameter BBD = 400,  // Bit burst duration.
     parameter BSD0 = 200,  // Bit silence duration (for 0).
     parameter BSD1 = 400,  // Bit silence duration (for 1).
@@ -11,7 +11,7 @@ module tx #(
 ) ( input wire clk_in,  // Clock in (98.3 MHz).
     input wire rst_in,  // Reset in.
     input wire valid_in,  // Valid signal
-    input wire [WIDTH-1:0] audio_in, // Audio in
+    input wire [WIDTH-1:0] signal_in, // Audio in
     output logic out, // Signal out
     output logic busy // Code being sent
 );
@@ -37,7 +37,7 @@ module tx #(
                 IDLE: begin
                     if (valid_in) begin
                         state <= SH;
-                        buffer <= audio_in;
+                        buffer <= signal_in;
                         signal_counter <= 0;
                         to_send <= WIDTH;
                         out <= 1;
@@ -104,7 +104,7 @@ module tx #(
 
                 WAIT: begin
                     signal_counter <= signal_counter + 1;
-                    if (signal_counter == BBD-1) begin
+                    if (signal_counter == (BBD-1)) begin
                         state <= IDLE;
                         out <= 0;
                         signal_counter <= 0;

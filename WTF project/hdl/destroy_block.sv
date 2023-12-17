@@ -33,6 +33,7 @@ module destroy_block(
                 end
 
                 STREAM: begin
+                    valid_out <= 0;
                     if (current_block == 16) begin
                         state <= IDLE;
                         valid_out <= 0;
@@ -41,8 +42,6 @@ module destroy_block(
                             valid_out <= 1;
                             result_out <= buffer[current_block];
                             current_block <= current_block + 1;
-                        end else begin
-                            valid_out <= 0;
                         end
                     end
                 end
